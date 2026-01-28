@@ -1,0 +1,12 @@
+.camera-flipped video {
+    transform: scaleX(-1);
+}
+
+@page {
+    margin: 0;
+}
+
+body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}

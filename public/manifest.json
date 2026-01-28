@@ -1,0 +1,21 @@
+{
+  "short_name": "QR学生管理",
+  "name": "QRコード学生管理システム",
+  "description": "生徒の名簿登録、QRコードの一括生成・印刷、提出物のスキャンチェックを一つのアプリで。名簿は全機能で同期されます。",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

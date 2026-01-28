@@ -1,0 +1,7 @@
+{
+  "name": "QRコード学生管理　ver1.6",
+  "description": "生徒の名簿登録、QRコードの一括生成・印刷、提出物のスキャンチェックを一つのアプリで。名簿は全機能で同期されます。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
