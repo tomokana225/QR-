@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import RosterManager from './components/RosterManager';
-import QRGenerator from './components/QRGenerator';
-import SubmissionChecker from './components/SubmissionChecker';
-import GradingScanner from './components/GradingScanner';
-import SettingsPage from './components/SettingsPage';
-import Dashboard from './components/Dashboard';
-import StudentReportModal from './components/StudentReportModal';
-import CreateListModal from './components/CreateListModal';
-import ConfirmationModal from './components/ConfirmationModal';
-import { Student, SubmissionList, GradingList, AppSettings, SOUNDS } from './types';
-import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon } from './components/Icons';
+import RosterManager from './components/RosterManager.tsx';
+import QRGenerator from './components/QRGenerator.tsx';
+import SubmissionChecker from './components/SubmissionChecker.tsx';
+import GradingScanner from './components/GradingScanner.tsx';
+import SettingsPage from './components/SettingsPage.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import StudentReportModal from './components/StudentReportModal.tsx';
+import CreateListModal from './components/CreateListModal.tsx';
+import ConfirmationModal from './components/ConfirmationModal.tsx';
+import { Student, SubmissionList, GradingList, AppSettings, SOUNDS } from './types.ts';
+import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon } from './components/Icons.tsx';
 
 const generateRandomCode = (length = 8) => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
