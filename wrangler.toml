@@ -1,6 +1,6 @@
 name = "qr-kanri"
 compatibility_date = "2026-01-28"
-main = "src/worker.ts"
+main = "worker.ts"
 
 [assets]
 directory = "dist"
