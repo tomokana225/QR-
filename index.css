@@ -1,12 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-slate-900 bg-slate-50;
+    font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  }
+}
+
+/* プロフェッショナルなスクロールバー */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+}
+
+/* カメラの反転設定 */
 .camera-flipped video {
-    transform: scaleX(-1);
+  transform: scaleX(-1);
 }
 
 @page {
-    margin: 0;
+  margin: 0;
 }
 
-body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+@media print {
+  .print\:hidden { display: none !important; }
+  body { 
+    overflow: visible !important;
+    background: white !important;
+  }
+}
+
+.scroll-container {
+  scrollbar-gutter: stable;
+}
+
+/* フェードインアニメーション */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
