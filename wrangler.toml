@@ -1,3 +1,9 @@
-name = "qr-kanri"
-compatibility_date = "2026-01-28"
+name = "qr-student-manager"
+compatibility_date = "2024-04-03"
 main = "worker.ts"
+
+# 静的アセット（ビルド成果物）の配信設定
+# npm run build で生成される dist フォルダを指定します
+[assets]
+directory = "./dist"
+binding = "ASSETS"
