@@ -26,6 +26,7 @@ const Dashboard: React.FC<{
         const total = students.length;
         const classes = new Set(students.map(s => s.className)).size;
         const latest = [...submissionLists].sort((a,b) => b.createdAt - a.createdAt)[0];
+        // ゼロ除算対策
         const rate = (latest && total > 0) ? (latest.submissions.length / total) * 100 : 0;
         return { total, classes, latest, rate };
     }, [students, submissionLists]);
@@ -33,7 +34,7 @@ const Dashboard: React.FC<{
     if (students.length === 0) {
         return (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-lg mx-auto">
-                <div className="bg-indigo-50 p-10 rounded-full mb-8 shadow-inner">
+                <div className="bg-indigo-50 p-10 rounded-full mb-8 shadow-inner inline-flex">
                     <UsersIcon className="w-16 h-16 text-indigo-500" />
                 </div>
                 <h3 className="text-2xl font-black text-slate-900 mb-3">生徒データがありません</h3>
@@ -43,7 +44,7 @@ const Dashboard: React.FC<{
                 </p>
                 <button 
                     onClick={onLoadMockData}
-                    className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all hover:-translate-y-1 active:scale-95"
+                    className="flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all hover:-translate-y-1 active:scale-95 mx-auto"
                 >
                     <SparklesIcon className="w-5 h-5" />
                     デモデータを読み込む
@@ -54,26 +55,27 @@ const Dashboard: React.FC<{
 
     return (
         <div className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
                 <StatCard title="Total Students" value={stats.total} detail="登録済み生徒数" icon={<UsersIcon className="w-7 h-7" />} color="bg-indigo-50" textColor="text-indigo-600" />
                 <StatCard title="Active Classes" value={stats.classes} detail="展開中のクラス数" icon={<UsersIcon className="w-7 h-7" />} color="bg-emerald-50" textColor="text-emerald-600" />
                 <StatCard title="Latest Rate" value={`${stats.rate.toFixed(0)}%`} detail={stats.latest?.name || "提出記録なし"} icon={<CheckCircleIcon className="w-7 h-7" />} color="bg-amber-50" textColor="text-amber-600" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="bg-white p-10 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+                <div className="bg-white p-6 lg:p-10 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                     <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3">
                         <div className="w-1.5 h-6 bg-indigo-600 rounded-full shadow-lg shadow-indigo-500/30"></div>
                         最近の提出状況
                     </h3>
                     <div className="space-y-8">
                         {submissionLists.slice(0, 5).map(list => {
-                            const rate = (list.submissions.length / students.length) * 100;
+                            // ゼロ除算対策
+                            const rate = (list.submissions.length / (students.length || 1)) * 100;
                             return (
                                 <div key={list.id} className="group">
                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-sm font-black text-slate-700 group-hover:text-indigo-600 transition-colors">{list.name}</span>
-                                        <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">{rate.toFixed(0)}%</span>
+                                        <span className="text-sm font-black text-slate-700 group-hover:text-indigo-600 transition-colors truncate pr-4">{list.name}</span>
+                                        <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg flex-shrink-0">{rate.toFixed(0)}%</span>
                                     </div>
                                     <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner">
                                         <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${rate}%` }}></div>
@@ -85,7 +87,7 @@ const Dashboard: React.FC<{
                     </div>
                 </div>
 
-                <div className="bg-white p-10 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col">
+                <div className="bg-white p-6 lg:p-10 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col">
                     <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3">
                         <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/30"></div>
                         個人レポート生成
@@ -97,9 +99,13 @@ const Dashboard: React.FC<{
                         <select 
                             onChange={(e) => e.target.value && onGenerateReport(e.target.value)}
                             className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all cursor-pointer appearance-none"
+                            defaultValue=""
                         >
-                            <option value="">生徒を選択してレポートを開く...</option>
-                            {students.sort((a,b) => a.className.localeCompare(b.className, undefined, {numeric: true})).map(s => (
+                            <option value="" disabled>生徒を選択してレポートを開く...</option>
+                            {students.sort((a,b) => {
+                                if (a.className !== b.className) return a.className.localeCompare(b.className, undefined, {numeric: true});
+                                return parseInt(a.studentNumber) - parseInt(b.studentNumber);
+                            }).map(s => (
                                 <option key={s.id} value={s.id}>{s.className}組 {s.studentNumber}番 {s.name}</option>
                             ))}
                         </select>
@@ -107,7 +113,7 @@ const Dashboard: React.FC<{
                              <DocumentTextIcon className="w-5 h-5" />
                         </div>
                     </div>
-                    <div className="mt-12 pt-8 flex items-center justify-center opacity-10">
+                    <div className="mt-auto pt-8 flex items-center justify-center opacity-10">
                         <DocumentTextIcon className="w-32 h-32 text-indigo-900" />
                     </div>
                 </div>

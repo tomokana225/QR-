@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import RosterManager from './components/RosterManager.tsx';
-import QRGenerator from './components/QRGenerator.tsx';
-import SubmissionChecker from './components/SubmissionChecker.tsx';
-import GradingScanner from './components/GradingScanner.tsx';
-import SettingsPage from './components/SettingsPage.tsx';
-import Dashboard from './components/Dashboard.tsx';
-import StudentReportModal from './components/StudentReportModal.tsx';
-import CreateListModal from './components/CreateListModal.tsx';
-import ConfirmationModal from './components/ConfirmationModal.tsx';
-import { Student, SubmissionList, GradingList, AppSettings, SOUNDS } from './types.ts';
-import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon } from './components/Icons.tsx';
+import RosterManager from './components/RosterManager';
+import QRGenerator from './components/QRGenerator';
+import SubmissionChecker from './components/SubmissionChecker';
+import GradingScanner from './components/GradingScanner';
+import SettingsPage from './components/SettingsPage';
+import Dashboard from './components/Dashboard';
+import StudentReportModal from './components/StudentReportModal';
+import CreateListModal from './components/CreateListModal';
+import ConfirmationModal from './components/ConfirmationModal';
+import { Student, SubmissionList, GradingList, AppSettings, SOUNDS } from './types';
+import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon } from './components/Icons';
 
 const generateRandomCode = (length = 8) => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -38,9 +38,9 @@ const App: React.FC = () => {
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [selectedStudentForReport, setSelectedStudentForReport] = useState<Student | null>(null);
 
-    // サイドバーの開閉状態
-    const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
-    // モバイル用の一時的な表示状態
+    // サイドバーの開閉状態（デスクトップ用）
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    // モバイル用メニューの開閉状態
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const [settings, setSettings] = useState<AppSettings>({ 
@@ -59,10 +59,25 @@ const App: React.FC = () => {
         lastSyncTimestamp: null,
     });
 
-    const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
+    const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; confirmButtonText?: string; cancelButtonText?: string; confirmButtonClass?: string; } | null>(null);
     const [syncStatus, setSyncStatus] = useState<string>('未同期');
 
     const audioRef = useRef<HTMLAudioElement>(new Audio(SOUNDS.ping));
+
+    // 画面サイズ変更時にサイドバーの状態を調整
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                setMobileMenuOpen(false);
+                // デスクトップではデフォルトで開く（ユーザーが閉じていなければ）
+            } else {
+                // モバイルではデフォルトで閉じる
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        handleResize(); // 初期実行
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         try {
@@ -248,59 +263,63 @@ const App: React.FC = () => {
     return (
         <div className="flex h-screen bg-slate-100 overflow-hidden font-sans relative">
             {/* モバイル用オーバーレイ */}
-            {mobileMenuOpen && (
-                <div 
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                    onClick={() => setMobileMenuOpen(false)}
-                />
-            )}
+            <div 
+                className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 lg:hidden ${
+                    mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+            />
 
             {/* サイドナビゲーション */}
             <aside 
-                className={`fixed inset-y-0 left-0 z-50 bg-slate-900 flex-shrink-0 flex flex-col print:hidden shadow-2xl transition-all duration-300 transform 
-                ${isSidebarOpen ? 'w-64' : 'w-0 lg:w-0 lg:opacity-0 -translate-x-full lg:translate-x-0'}
-                ${mobileMenuOpen ? 'w-64 translate-x-0' : 'translate-x-full lg:translate-x-0 lg:relative'}
-                ${!isSidebarOpen && !mobileMenuOpen ? '-translate-x-full lg:-translate-x-full' : ''}
+                className={`
+                    fixed lg:static inset-y-0 left-0 z-50 bg-slate-900 flex-shrink-0 flex flex-col print:hidden shadow-2xl transition-all duration-300 transform
+                    ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                    ${isSidebarOpen ? 'lg:w-64' : 'lg:w-0'}
+                    w-64 lg:overflow-hidden
                 `}
             >
-                <div className={`p-8 transition-opacity duration-200 ${!isSidebarOpen && !mobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}>
-                    <h1 className="text-white text-xl font-black tracking-tighter flex items-center gap-2">
-                        <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg shadow-indigo-500/30">
-                            <QrCodeIcon className="w-6 h-6" />
-                        </div>
-                        <span className="whitespace-nowrap">QR学生管理</span>
-                    </h1>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] mt-3 whitespace-nowrap">プロフェッショナル版</p>
-                </div>
-                
-                <nav className={`flex-grow px-4 space-y-1.5 overflow-y-auto transition-opacity duration-200 ${!isSidebarOpen && !mobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}>
-                    {navItems.map(item => (
-                        <button
-                            key={item.mode}
-                            onClick={() => {
-                                setMainMode(item.mode);
-                                if (window.innerWidth < 1024) setMobileMenuOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all duration-300 group ${
-                                mainMode === item.mode 
-                                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 translate-x-1' 
-                                : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-100'
-                            }`}
-                        >
-                            <span className={`${mainMode === item.mode ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'} transition-colors`}>
-                                {item.icon}
-                            </span>
-                            <span className="text-sm font-bold tracking-tight whitespace-nowrap">{item.label}</span>
-                        </button>
-                    ))}
-                </nav>
+                {/* サイドバーの中身を固定幅のコンテナに入れることで、親の幅が0になっても中身が崩れないようにする */}
+                <div className="flex flex-col h-full w-64 overflow-hidden">
+                    <div className="p-8">
+                        <h1 className="text-white text-xl font-black tracking-tighter flex items-center gap-2">
+                            <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg shadow-indigo-500/30">
+                                <QrCodeIcon className="w-6 h-6" />
+                            </div>
+                            <span className="whitespace-nowrap">QR学生管理</span>
+                        </h1>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] mt-3 whitespace-nowrap">Professional Edition</p>
+                    </div>
+                    
+                    <nav className="flex-grow px-4 space-y-1.5 overflow-y-auto">
+                        {navItems.map(item => (
+                            <button
+                                key={item.mode}
+                                onClick={() => {
+                                    setMainMode(item.mode);
+                                    if (window.innerWidth < 1024) setMobileMenuOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all duration-300 group ${
+                                    mainMode === item.mode 
+                                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 translate-x-1' 
+                                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-100'
+                                }`}
+                            >
+                                <span className={`${mainMode === item.mode ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'} transition-colors`}>
+                                    {item.icon}
+                                </span>
+                                <span className="text-sm font-bold tracking-tight whitespace-nowrap">{item.label}</span>
+                            </button>
+                        ))}
+                    </nav>
 
-                <div className={`p-6 mt-auto border-t border-slate-800/50 transition-opacity duration-200 ${!isSidebarOpen && !mobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}>
-                    <div className="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/30">
-                        <p className="text-slate-500 text-[9px] uppercase font-black tracking-widest mb-2 whitespace-nowrap">同期状況</p>
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus.includes('エラー') ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
-                            <p className="text-slate-300 text-[11px] font-bold truncate">{syncStatus}</p>
+                    <div className="p-6 mt-auto border-t border-slate-800/50">
+                        <div className="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/30">
+                            <p className="text-slate-500 text-[9px] uppercase font-black tracking-widest mb-2 whitespace-nowrap">Sync Status</p>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus.includes('エラー') ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+                                <p className="text-slate-300 text-[11px] font-bold truncate">{syncStatus}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -323,14 +342,14 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-6">
                         <div className="flex flex-col items-end">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">登録生徒数</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Total Students</span>
                             <span className="text-xs lg:text-sm font-black text-indigo-600 bg-white px-3 py-1 lg:px-4 rounded-full shadow-sm border border-slate-200/50">{students.length} 名</span>
                         </div>
                     </div>
                 </header>
 
-                {/* メインコンテンツエリア */}
-                <div className="flex-grow overflow-hidden px-4 lg:px-10 pb-4 lg:pb-10">
+                {/* ホワイトカードコンテナ */}
+                <div className="flex-grow overflow-hidden px-4 pb-4 lg:px-10 lg:pb-10">
                     <div className="h-full bg-white rounded-2xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
                         <div className="absolute inset-0 p-4 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
                             {mainMode === 'dashboard' && <Dashboard students={students} submissionLists={submissionLists} gradingLists={gradingLists} onGenerateReport={(id) => { setSelectedStudentForReport(students.find(s=>s.id===id)!); setIsReportModalOpen(true); }} onLoadMockData={handleLoadMockData} />}
@@ -345,7 +364,7 @@ const App: React.FC = () => {
             </main>
 
             <CreateListModal isOpen={isCreateSubmissionListModalOpen} onClose={() => setIsCreateSubmissionListModalOpen(false)} onCreate={handleCreateSubmissionList} title="提出リスト作成" defaultNamePrefix="提出" />
-            <ConfirmationModal isOpen={!!confirmation} onClose={() => setConfirmation(null)} onConfirm={confirmation?.onConfirm || (() => {})} title={confirmation?.title || ''} message={confirmation?.message || ''} />
+            <ConfirmationModal isOpen={!!confirmation} onClose={() => setConfirmation(null)} onConfirm={confirmation?.onConfirm || (() => {})} title={confirmation?.title || ''} message={confirmation?.message || ''} confirmButtonText={confirmation?.confirmButtonText} cancelButtonText={confirmation?.cancelButtonText} confirmButtonClass={confirmation?.confirmButtonClass} />
             <StudentReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} student={selectedStudentForReport} submissionLists={submissionLists} gradingLists={gradingLists} />
         </div>
     );

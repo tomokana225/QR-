@@ -22,6 +22,9 @@ const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
     height: 800,
     width: 1200,
+    minWidth: 800,
+    minHeight: 600,
+    autoHideMenuBar: true, // メニューバーを自動で隠す（Altキーで表示）
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
@@ -32,8 +35,10 @@ const createWindow = (): void => {
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  // Open the DevTools for debugging.
-  mainWindow.webContents.openDevTools();
+  // Open the DevTools for debugging only in development mode.
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
 };
 
 // This method will be called when Electron has finished

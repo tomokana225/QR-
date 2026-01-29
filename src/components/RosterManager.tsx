@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Student } from '../types.ts';
-import { SparklesIcon, XMarkIcon, TrashIcon } from './Icons.tsx';
+import { Student } from '../types';
+import { SparklesIcon, XMarkIcon, TrashIcon } from './Icons';
 
 const RosterManager: React.FC<{
     students: Student[];

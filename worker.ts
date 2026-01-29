@@ -1,52 +1,53 @@
-// Cloudflare Workers types
-interface Fetcher {
-  fetch(request: Request | string, init?: any): Promise<Response>;
+export interface Env {
+  // 環境変数やBindingがあればここに定義
 }
 
-interface ExecutionContext {
+/**
+ * Cloudflare Workers Execution Context
+ */
+export interface ExecutionContext {
   waitUntil(promise: Promise<any>): void;
   passThroughOnException(): void;
 }
 
-export interface Env {
-  ASSETS: Fetcher;
-}
-
 export default {
+  /**
+   * メインフェッチハンドラ
+   */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // APIリクエストの処理（必要に応じて実装）
+    // APIエンドポイントの例
     if (url.pathname.startsWith("/api/")) {
-       if (url.pathname === "/api/health") {
-        return new Response(JSON.stringify({ status: "ok" }), {
-          headers: { "Content-Type": "application/json" }
+      if (url.pathname === "/api/health") {
+        return new Response(JSON.stringify({ 
+          status: "ok", 
+          timestamp: Date.now(),
+          service: "QR Student Manager API"
+        }), {
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          },
         });
       }
+      
+      return new Response(JSON.stringify({ error: "Not Found" }), { 
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
-    // 静的アセットの取得を試みる
-    try {
-      // ASSETSバインディングを使ってリクエストされたファイルを取得
-      const response = await env.ASSETS.fetch(request);
-
-      // ファイルが見つかった場合 (200 OK) や、304 Not Modified などの場合はそのまま返す
-      if (response.status >= 200 && response.status < 400) {
-        return response;
+    // デフォルトの応答 (フロントエンドのHTMLを想定)
+    // 静的アセット配信は通常 Cloudflare Pages や Assets 経由だが、
+    // Worker単体で動作させる場合のフォールバック
+    return new Response(
+      `QRコード学生管理システム Worker実行中.
+      アクセス日時: ${new Date().toLocaleString('ja-JP')}`, 
+      { 
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
       }
-
-      // 404の場合は、SPAのルーティングのために index.html を返す (Fallback)
-      // ただし、/api/ などの意図的な404や、画像などのリソースに対する404は除外するのが一般的だが
-      // ここではシンプルにHTMLリクエストっぽければindex.htmlを返す
-      if (response.status === 404 && !url.pathname.startsWith("/api/")) {
-        const indexRequest = new Request(new URL("/index.html", request.url), request);
-        return await env.ASSETS.fetch(indexRequest);
-      }
-
-      return response;
-    } catch (e) {
-      // エラー発生時は500を返す
-      return new Response("Internal Server Error", { status: 500 });
-    }
+    );
   },
 };
