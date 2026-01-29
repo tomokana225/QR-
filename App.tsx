@@ -97,7 +97,7 @@ const App: React.FC = () => {
         if (settings.soundEffect === 'custom' && settings.customSound) {
             audio.src = settings.customSound;
         } else if (settings.soundEffect !== 'none' && settings.soundEffect !== 'custom') {
-            audio.src = SOUNDS[settings.soundEffect];
+            audio.src = SOUNDS[settings.soundEffect as keyof typeof SOUNDS] || SOUNDS.ping;
         }
         audio.volume = settings.volume;
     }, [settings.volume, settings.soundEffect, settings.customSound]);
@@ -245,23 +245,16 @@ const App: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-slate-100 overflow-hidden font-sans relative">
-            {/* モバイル用オーバーレイ */}
             {mobileMenuOpen && (
-                <div 
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                    onClick={() => setMobileMenuOpen(false)}
-                />
+                <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
             )}
-
-            {/* サイドナビゲーション */}
             <aside 
                 className={`fixed inset-y-0 left-0 z-50 bg-slate-900 flex-shrink-0 flex flex-col print:hidden shadow-2xl transition-all duration-300 transform 
                 ${isSidebarOpen ? 'w-64' : 'w-0 lg:w-0 lg:opacity-0 -translate-x-full lg:translate-x-0'}
                 ${mobileMenuOpen ? 'w-64 translate-x-0' : 'translate-x-full lg:translate-x-0 lg:relative'}
-                ${!isSidebarOpen && !mobileMenuOpen ? '-translate-x-full lg:-translate-x-full' : ''}
                 `}
             >
-                <div className={`p-8 transition-opacity duration-200 ${!isSidebarOpen && !mobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}>
+                <div className="p-8">
                     <h1 className="text-white text-xl font-black tracking-tighter flex items-center gap-2">
                         <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg shadow-indigo-500/30">
                             <QrCodeIcon className="w-6 h-6" />
@@ -270,7 +263,7 @@ const App: React.FC = () => {
                     </h1>
                 </div>
                 
-                <nav className={`flex-grow px-4 space-y-1.5 overflow-y-auto transition-opacity duration-200 ${!isSidebarOpen && !mobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}>
+                <nav className="flex-grow px-4 space-y-1.5 overflow-y-auto">
                     {navItems.map(item => (
                         <button
                             key={item.mode}
@@ -293,15 +286,10 @@ const App: React.FC = () => {
                 </nav>
             </aside>
 
-            {/* メインエリア */}
             <main className="flex-grow flex flex-col min-w-0 bg-slate-100 relative overflow-hidden transition-all duration-300">
                 <header className="h-16 lg:h-20 bg-transparent flex items-center justify-between px-4 lg:px-10 flex-shrink-0 z-10 print:hidden">
                     <div className="flex items-center gap-4">
-                        <button 
-                            onClick={toggleSidebar}
-                            className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
-                            aria-label="メニューを切り替え"
-                        >
+                        <button onClick={toggleSidebar} className="p-2 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95">
                             <Bars3Icon className="w-6 h-6" />
                         </button>
                         <h2 className="text-lg lg:text-2xl font-black text-slate-800 tracking-tight">
@@ -310,7 +298,6 @@ const App: React.FC = () => {
                     </div>
                 </header>
 
-                {/* メインコンテンツエリア */}
                 <div className="flex-grow overflow-hidden px-4 lg:px-10 pb-4 lg:pb-10">
                     <div className="h-full bg-white rounded-2xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
                         <div className="absolute inset-0 p-4 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
