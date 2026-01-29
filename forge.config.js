@@ -7,8 +7,8 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        authors: 'QRコード学生管理システム',
-        description: '生徒の名簿登録、QRコードの一括生成・印刷、提出物のスキャンチェックを行えるアプリです。',
+        authors: 'School Admin Tools',
+        description: 'Student roster management, QR code generation, and submission tracking system.',
       },
     },
     {

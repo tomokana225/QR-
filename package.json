@@ -1,8 +1,8 @@
 {
   "name": "qr-student-manager",
-  "productName": "QRコード学生管理システム",
+  "productName": "QR Student Manager",
   "version": "1.0.0",
-  "description": "生徒の名簿登録、QRコードの一括生成・印刷、提出物のスキャンチェックを一つのアプリで。名簿は全機能で同期されます。",
+  "description": "Student roster management, QR code generation, and submission tracking system.",
   "main": ".webpack/main",
   "author": "School Admin Tools",
   "scripts": {
