@@ -9,7 +9,7 @@ import StudentReportModal from './components/StudentReportModal.tsx';
 import CreateListModal from './components/CreateListModal.tsx';
 import ConfirmationModal from './components/ConfirmationModal.tsx';
 import { Student, SubmissionList, GradingList, AppSettings, SOUNDS } from './types.ts';
-import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon } from './components/Icons.tsx';
+import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon } from './components/Icons.tsx';
 
 const generateRandomCode = (length = 8) => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -37,6 +37,8 @@ const App: React.FC = () => {
     
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [selectedStudentForReport, setSelectedStudentForReport] = useState<Student | null>(null);
+
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const [settings, setSettings] = useState<AppSettings>({ 
         volume: 1, 
@@ -82,6 +84,11 @@ const App: React.FC = () => {
                 if (parsedSettings.lastSyncTimestamp) setSyncStatus(`最終同期: ${new Date(parsedSettings.lastSyncTimestamp).toLocaleString()}`);
             }
         } catch (error) { console.error(error); }
+
+        // Initial check for mobile
+        if (window.innerWidth < 1024) {
+            setIsSidebarOpen(false);
+        }
     }, []);
 
     useEffect(() => { localStorage.setItem('students', JSON.stringify(students)); }, [students]);
@@ -223,6 +230,8 @@ const App: React.FC = () => {
         setMainMode('dashboard');
     };
 
+    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
     const navItems: { mode: MainMode; label: string; icon: React.ReactNode }[] = [
         { mode: 'dashboard', label: 'ダッシュボード', icon: <ChartBarIcon className="w-5 h-5" /> },
         { mode: 'roster', label: '名簿管理', icon: <UsersIcon className="w-5 h-5" /> },
@@ -234,23 +243,44 @@ const App: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
+            {/* モバイル用オーバーレイ */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-30 lg:hidden transition-opacity"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
             {/* サイドナビゲーション */}
-            <aside className="w-64 bg-slate-900 flex-shrink-0 flex flex-col print:hidden shadow-2xl z-20">
-                <div className="p-8">
-                    <h1 className="text-white text-2xl font-black tracking-tighter flex items-center gap-2">
-                        <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg shadow-indigo-500/30">
-                            <QrCodeIcon className="w-6 h-6" />
-                        </div>
-                        QR Manager
-                    </h1>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] mt-3">Professional Edition</p>
+            <aside 
+                className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 flex-shrink-0 flex flex-col print:hidden shadow-2xl transition-transform duration-300 transform lg:relative lg:translate-x-0 ${
+                    isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'
+                }`}
+            >
+                <div className="p-8 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-white text-2xl font-black tracking-tighter flex items-center gap-2">
+                            <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg shadow-indigo-500/30">
+                                <QrCodeIcon className="w-6 h-6" />
+                            </div>
+                            QR Manager
+                        </h1>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] mt-3">Professional Edition</p>
+                    </div>
+                    {/* モバイル用閉じるボタン */}
+                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
                 </div>
                 
                 <nav className="flex-grow px-4 space-y-1.5 overflow-y-auto">
                     {navItems.map(item => (
                         <button
                             key={item.mode}
-                            onClick={() => setMainMode(item.mode)}
+                            onClick={() => {
+                                setMainMode(item.mode);
+                                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                            }}
                             className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all duration-300 group ${
                                 mainMode === item.mode 
                                 ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 translate-x-1' 
@@ -277,25 +307,32 @@ const App: React.FC = () => {
             </aside>
 
             {/* メインエリア */}
-            <main className="flex-grow flex flex-col min-w-0 bg-slate-100 relative overflow-hidden">
-                <header className="h-20 bg-transparent flex items-center justify-between px-10 flex-shrink-0 z-10 print:hidden">
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+            <main className="flex-grow flex flex-col min-w-0 bg-slate-100 relative overflow-hidden transition-all duration-300">
+                <header className="h-20 bg-transparent flex items-center justify-between px-6 lg:px-10 flex-shrink-0 z-10 print:hidden">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={toggleSidebar}
+                            className="p-2 -ml-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                            aria-label="Toggle Menu"
+                        >
+                            <Bars3Icon className="w-6 h-6" />
+                        </button>
+                        <h2 className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight">
                             {navItems.find(i => i.mode === mainMode)?.label}
                         </h2>
                     </div>
                     <div className="flex items-center gap-6">
                         <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</span>
-                            <span className="text-sm font-black text-indigo-600 bg-white px-4 py-1 rounded-full shadow-sm border border-slate-200/50">{students.length} 名</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Total Students</span>
+                            <span className="text-sm font-black text-indigo-600 bg-white px-3 py-1 lg:px-4 rounded-full shadow-sm border border-slate-200/50">{students.length} 名</span>
                         </div>
                     </div>
                 </header>
 
                 {/* ホワイトカードコンテナ */}
-                <div className="flex-grow overflow-hidden px-10 pb-10">
-                    <div className="h-full bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
-                        <div className="absolute inset-0 p-10 overflow-y-auto scroll-container animate-fade-in">
+                <div className="flex-grow overflow-hidden px-4 lg:px-10 pb-4 lg:pb-10">
+                    <div className="h-full bg-white rounded-2xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
+                        <div className="absolute inset-0 p-4 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
                             {mainMode === 'dashboard' && <Dashboard students={students} submissionLists={submissionLists} gradingLists={gradingLists} onGenerateReport={(id) => { setSelectedStudentForReport(students.find(s=>s.id===id)!); setIsReportModalOpen(true); }} onLoadMockData={handleLoadMockData} />}
                             {mainMode === 'roster' && <RosterManager students={students} selectedStudentIds={selectedStudentIds} setSelectedStudentIds={setSelectedStudentIds} onAddStudent={handleAddStudent} onBulkAddStudents={handleBulkAddStudents} onDeleteStudent={handleDeleteStudent} onDeleteSelectedStudents={handleDeleteSelectedStudents} />}
                             {mainMode === 'qr' && <QRGenerator students={students} />}

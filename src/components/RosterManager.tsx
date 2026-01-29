@@ -47,9 +47,9 @@ const RosterManager: React.FC<{
         });
 
     return (
-        <div className="flex gap-8 h-full">
-            {/* Registration Form - Fixed Side */}
-            <div className="w-80 flex-shrink-0 flex flex-col gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 h-full">
+            {/* Registration Form - Fixed Side on Desktop */}
+            <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
                         <button onClick={() => setMode('single')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${mode === 'single' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>個別</button>
@@ -96,7 +96,7 @@ const RosterManager: React.FC<{
             </div>
 
             {/* Student List - Scrollable */}
-            <div className="flex-grow bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <div className="flex-grow bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden min-h-[300px]">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                     <h3 className="font-black text-slate-800 tracking-tight">登録生徒一覧</h3>
                     <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 text-xs font-bold bg-slate-100 border-none rounded-lg outline-none cursor-pointer">
@@ -118,16 +118,16 @@ const RosterManager: React.FC<{
                                     if(next.has(s.id)) next.delete(s.id); else next.add(s.id);
                                     return next;
                                 })}
-                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0"
                             />
-                            <div className="flex-grow">
+                            <div className="flex-grow min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{s.className}組 {s.studentNumber}番</span>
-                                    <span className="text-sm font-bold text-slate-800">{s.name}</span>
+                                    <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s.className}組 {s.studentNumber}番</span>
+                                    <span className="text-sm font-bold text-slate-800 truncate">{s.name}</span>
                                 </div>
-                                <code className="text-[10px] text-slate-400 font-mono">{s.randomCode}</code>
+                                <code className="text-[10px] text-slate-400 font-mono hidden sm:block">{s.randomCode}</code>
                             </div>
-                            <button onClick={() => onDeleteStudent(s.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                            <button onClick={() => onDeleteStudent(s.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">
                                 <XMarkIcon className="w-4 h-4" />
                             </button>
                         </div>

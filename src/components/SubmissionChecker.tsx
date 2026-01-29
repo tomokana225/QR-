@@ -52,10 +52,10 @@ const SubmissionChecker: React.FC<{
     };
 
     return (
-        <div className="flex gap-10 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 h-full">
             {/* サイドコントロール */}
-            <div className="w-80 flex-shrink-0 flex flex-col gap-8">
-                <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+            <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 lg:gap-8">
+                <div className="bg-white p-6 lg:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
                     <div className="flex justify-between items-center mb-4">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active List</label>
                         {activeSubmissionListId && (
@@ -71,11 +71,11 @@ const SubmissionChecker: React.FC<{
                         <select 
                             value={activeSubmissionListId || ''} 
                             onChange={e => onSetActiveSubmissionListId(e.target.value)}
-                            className="flex-grow p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer"
+                            className="flex-grow p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer w-full min-w-0"
                         >
                             {submissionLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                         </select>
-                        <button onClick={onCreateSubmissionList} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20" title="新規リスト"><PlusIcon className="w-5 h-5"/></button>
+                        <button onClick={onCreateSubmissionList} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 flex-shrink-0" title="新規リスト"><PlusIcon className="w-5 h-5"/></button>
                     </div>
                     
                     <button 
@@ -87,7 +87,7 @@ const SubmissionChecker: React.FC<{
                     </button>
                 </div>
 
-                <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl shadow-indigo-900/10">
+                <div className="bg-slate-900 p-6 lg:p-8 rounded-3xl shadow-2xl shadow-indigo-900/10">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30">
                             <CameraIcon className="w-5 h-5 text-white" />
@@ -101,7 +101,6 @@ const SubmissionChecker: React.FC<{
                             onChange={e => setBarcodeInput(e.target.value)}
                             placeholder="バーコード手入力..."
                             className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all placeholder:text-slate-600"
-                            autoFocus
                         />
                     </form>
                     <button 
@@ -112,7 +111,7 @@ const SubmissionChecker: React.FC<{
                     </button>
                 </div>
 
-                <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mt-auto">
+                <div className="bg-white p-6 lg:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mt-auto">
                     <div className="flex justify-between items-end mb-3">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
                         <span className="text-xl font-black text-indigo-600">{submissionMap.size} <span className="text-[10px] text-slate-400">/ {students.length}</span></span>
@@ -124,8 +123,8 @@ const SubmissionChecker: React.FC<{
             </div>
 
             {/* 一覧リスト */}
-            <div className="flex-grow bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col overflow-hidden">
-                <div className="p-10 border-b border-slate-50 flex justify-between items-center">
+            <div className="flex-grow bg-white rounded-3xl lg:rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col overflow-hidden min-h-[300px]">
+                <div className="p-6 lg:p-10 border-b border-slate-50 flex flex-wrap gap-4 justify-between items-center">
                     <div>
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">提出状況</h3>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Status Table</p>
@@ -137,13 +136,13 @@ const SubmissionChecker: React.FC<{
                     </select>
                 </div>
                 
-                <div className="flex-grow overflow-y-auto scroll-container px-6">
+                <div className="flex-grow overflow-y-auto scroll-container px-4 lg:px-6">
                     <table className="w-full text-sm text-left border-separate border-spacing-y-2">
                         <thead className="bg-white sticky top-0 z-10">
                             <tr className="text-slate-400">
-                                <th className="px-6 py-4 font-black text-[10px] uppercase tracking-widest">生徒</th>
-                                <th className="px-6 py-4 font-black text-[10px] uppercase tracking-widest">ステータス</th>
-                                <th className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-right">確認時間</th>
+                                <th className="px-3 lg:px-6 py-4 font-black text-[10px] uppercase tracking-widest">生徒</th>
+                                <th className="px-3 lg:px-6 py-4 font-black text-[10px] uppercase tracking-widest">ステータス</th>
+                                <th className="px-3 lg:px-6 py-4 font-black text-[10px] uppercase tracking-widest text-right hidden sm:table-cell">確認時間</th>
                             </tr>
                         </thead>
                         <tbody className="animate-fade-in">
@@ -151,21 +150,21 @@ const SubmissionChecker: React.FC<{
                                 const timestamp = submissionMap.get(s.id);
                                 return (
                                     <tr key={s.id} className={`group transition-all ${timestamp ? 'bg-emerald-50/20' : 'bg-transparent hover:bg-slate-50'}`}>
-                                        <td className="px-6 py-5 rounded-l-2xl">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-xs shadow-sm ${timestamp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                        <td className="px-3 lg:px-6 py-3 lg:py-5 rounded-l-xl lg:rounded-l-2xl">
+                                            <div className="flex items-center gap-3 lg:gap-4">
+                                                <div className={`w-9 h-9 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0 ${timestamp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                                                     {s.studentNumber}
                                                 </div>
-                                                <div>
-                                                    <p className="font-black text-slate-900 text-base">{s.name}</p>
+                                                <div className="min-w-0">
+                                                    <p className="font-black text-slate-900 text-sm lg:text-base truncate">{s.name}</p>
                                                     <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{s.className}組</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5">
+                                        <td className="px-3 lg:px-6 py-3 lg:py-5">
                                             <button 
                                                 onClick={() => handleToggleSubmission(s.id, timestamp)}
-                                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 group/status shadow-sm ${
+                                                className={`inline-flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl text-[10px] lg:text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 group/status shadow-sm whitespace-nowrap ${
                                                     timestamp 
                                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-red-50 hover:text-red-700 hover:border-red-100' 
                                                     : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-100'
@@ -182,7 +181,7 @@ const SubmissionChecker: React.FC<{
                                                 )}
                                             </button>
                                         </td>
-                                        <td className="px-6 py-5 text-right font-mono text-slate-400 text-xs rounded-r-2xl">
+                                        <td className="px-3 lg:px-6 py-3 lg:py-5 text-right font-mono text-slate-400 text-xs rounded-r-xl lg:rounded-r-2xl hidden sm:table-cell">
                                             {/* timestamp is number | undefined since submissionMap is Map<string, number> */}
                                             {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                         </td>
