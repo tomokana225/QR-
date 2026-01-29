@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Student, SubmissionList, GradingList } from '../types';
-import { UsersIcon, CheckCircleIcon, DocumentTextIcon, SparklesIcon } from './Icons';
+import { Student, SubmissionList, GradingList } from '../types.ts';
+import { UsersIcon, CheckCircleIcon, DocumentTextIcon, SparklesIcon } from './Icons.tsx';
 
 const StatCard: React.FC<{ title: string; value: string | number; detail?: string; icon: React.ReactNode; color: string; textColor: string }> = ({ title, value, detail, icon, color, textColor }) => (
     <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex items-center gap-6 transition-transform hover:scale-[1.02] duration-300">
@@ -39,7 +39,6 @@ const Dashboard: React.FC<{
                 <h3 className="text-2xl font-black text-slate-900 mb-3">生徒データがありません</h3>
                 <p className="text-slate-500 mb-8 leading-relaxed">
                     生徒を登録すると、QRコードの生成や提出管理が利用可能になります。
-                    まずはデモデータを読み込んで機能を体験してみませんか？
                 </p>
                 <button 
                     onClick={onLoadMockData}
@@ -90,9 +89,6 @@ const Dashboard: React.FC<{
                         <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/30"></div>
                         個人レポート生成
                     </h3>
-                    <p className="text-sm text-slate-500 mb-8 leading-relaxed font-medium">
-                        特定の生徒を選択して、これまでの全提出履歴と採点結果をまとめた「個人評価レポート」を生成・印刷します。
-                    </p>
                     <div className="relative group">
                         <select 
                             onChange={(e) => e.target.value && onGenerateReport(e.target.value)}
@@ -103,12 +99,6 @@ const Dashboard: React.FC<{
                                 <option key={s.id} value={s.id}>{s.className}組 {s.studentNumber}番 {s.name}</option>
                             ))}
                         </select>
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                             <DocumentTextIcon className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <div className="mt-12 pt-8 flex items-center justify-center opacity-10">
-                        <DocumentTextIcon className="w-32 h-32 text-indigo-900" />
                     </div>
                 </div>
             </div>

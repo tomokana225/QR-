@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Student, SubmissionList, AppSettings } from '../types';
-import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon } from './Icons';
-import CameraScannerModal from './CameraScannerModal';
+import { Student, SubmissionList, AppSettings } from '../types.ts';
+import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon } from './Icons.tsx';
+import CameraScannerModal from './CameraScannerModal.tsx';
 
 const SubmissionChecker: React.FC<{
     students: Student[];
@@ -53,7 +53,8 @@ const SubmissionChecker: React.FC<{
     const handleExportCSV = () => {
         if (!activeList) return;
         
-        const csvRows = [['クラス', '番号', '氏名', '提出状況', '提出時間']];
+        // CSVヘッダー
+        const csvRows = [['クラス', '番号', '氏名', '提出状況', '提出日時']];
         
         studentsToDisplay.forEach(student => {
             const timestamp = submissionMap.get(student.id);
@@ -62,8 +63,8 @@ const SubmissionChecker: React.FC<{
             csvRows.push([student.className, student.studentNumber, student.name, status, time]);
         });
 
-        // BOM (\uFEFF) を付与してExcelでの文字化けを防止
-        const csvContent = "\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
+        // BOM (\uFEFF) を付与してExcelでの日本語文字化けを防止
+        const csvContent = "\uFEFF" + csvRows.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -80,7 +81,7 @@ const SubmissionChecker: React.FC<{
             <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 lg:gap-8">
                 <div className="bg-white p-6 lg:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
                     <div className="flex justify-between items-center mb-4">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active List</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">現在のリスト</label>
                         {activeSubmissionListId && (
                             <button 
                                 onClick={() => onDeleteSubmissionList(activeSubmissionListId)}
@@ -99,7 +100,7 @@ const SubmissionChecker: React.FC<{
                             {submissionLists.length > 0 ? (
                                 submissionLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)
                             ) : (
-                                <option value="">リストがありません</option>
+                                <option value="">リストを選択してください</option>
                             )}
                         </select>
                         <button onClick={onCreateSubmissionList} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 flex-shrink-0" title="新規リスト"><PlusIcon className="w-5 h-5"/></button>
@@ -108,10 +109,10 @@ const SubmissionChecker: React.FC<{
                     {activeSubmissionListId && (
                         <button 
                             onClick={handleExportCSV}
-                            className="w-full mb-6 py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-white hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm"
+                            className="w-full mb-4 py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-white hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm"
                         >
                             <DocumentArrowDownIcon className="w-4 h-4" />
-                            CSVでエクスポート
+                            Excel (CSV) 出力
                         </button>
                     )}
                     
@@ -120,7 +121,7 @@ const SubmissionChecker: React.FC<{
                         className="w-full py-3 px-4 border-2 border-slate-100 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all flex items-center justify-center gap-2"
                     >
                         <ArrowPathIcon className="w-3.5 h-3.5" />
-                        Reset All Data
+                        全データをリセット
                     </button>
                 </div>
 
@@ -129,7 +130,7 @@ const SubmissionChecker: React.FC<{
                         <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30">
                             <CameraIcon className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="text-white text-sm font-black tracking-tight">Scanner</h3>
+                        <h3 className="text-white text-sm font-black tracking-tight">スキャナー</h3>
                     </div>
                     <form onSubmit={handleBarcodeSubmit} className="mb-6">
                         <input 
@@ -150,7 +151,7 @@ const SubmissionChecker: React.FC<{
 
                 <div className="bg-white p-6 lg:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mt-auto">
                     <div className="flex justify-between items-end mb-3">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">進捗</span>
                         <span className="text-xl font-black text-indigo-600">{submissionMap.size} <span className="text-[10px] text-slate-400">/ {students.length}</span></span>
                     </div>
                     <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden shadow-inner">
@@ -164,7 +165,7 @@ const SubmissionChecker: React.FC<{
                 <div className="p-6 lg:p-10 border-b border-slate-50 flex flex-wrap gap-4 justify-between items-center">
                     <div>
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">提出状況</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Status Table</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">状況一覧</p>
                     </div>
                     <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-3 px-5 text-xs font-black bg-slate-50 border border-slate-200 rounded-xl outline-none cursor-pointer focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none">
                         <option value="all">すべてのクラス</option>
@@ -237,7 +238,7 @@ const SubmissionChecker: React.FC<{
                 settings={settings}
                 onSettingsChange={onSettingsChange}
                 scannerId="qr-reader-submission"
-                title="Scanner"
+                title="提出スキャナー"
             />
         </div>
     );
