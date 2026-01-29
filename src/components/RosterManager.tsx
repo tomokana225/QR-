@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Student } from '../types';
-import { SparklesIcon, XMarkIcon, TrashIcon } from './Icons';
+import { Student } from '../types.ts';
+import { SparklesIcon, XMarkIcon, TrashIcon } from './Icons.tsx';
 
 const RosterManager: React.FC<{
     students: Student[];
@@ -48,7 +48,7 @@ const RosterManager: React.FC<{
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 h-full">
-            {/* Registration Form - Fixed Side on Desktop */}
+            {/* Registration Form */}
             <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
@@ -64,7 +64,7 @@ const RosterManager: React.FC<{
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase">出席番号</label>
-                                <input type="text" value={studentNumber} onChange={e => setStudentNumber(e.target.value)} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10" required />
+                                <input type="number" inputMode="numeric" value={studentNumber} onChange={e => setStudentNumber(e.target.value)} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10" required />
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase">氏名</label>
@@ -95,21 +95,20 @@ const RosterManager: React.FC<{
                 )}
             </div>
 
-            {/* Student List - Scrollable */}
+            {/* Student List */}
             <div className="flex-grow bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden min-h-[300px]">
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+                <div className="p-4 lg:p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                     <h3 className="font-black text-slate-800 tracking-tight">登録生徒一覧</h3>
                     <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 text-xs font-bold bg-slate-100 border-none rounded-lg outline-none cursor-pointer">
                         <option value="all">全クラス</option>
-                        {/* FIX: Cast to string[] to ensure localeCompare works on inferred strings */}
-                        {([...new Set(students.map(s => s.className))] as string[]).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c => (
+                        {Array.from(new Set(students.map(s => s.className))).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c => (
                             <option key={c} value={c}>{c}組</option>
                         ))}
                     </select>
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 space-y-2">
                     {studentsToDisplay.map(s => (
-                        <div key={s.id} className={`flex items-center gap-4 p-4 rounded-xl transition-all border ${selectedStudentIds.has(s.id) ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
+                        <div key={s.id} className={`flex items-center gap-3 lg:gap-4 p-3 lg:p-4 rounded-xl transition-all border ${selectedStudentIds.has(s.id) ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
                             <input 
                                 type="checkbox" 
                                 checked={selectedStudentIds.has(s.id)} 
@@ -122,17 +121,16 @@ const RosterManager: React.FC<{
                             />
                             <div className="flex-grow min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s.className}組 {s.studentNumber}番</span>
+                                    <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s.className}-{s.studentNumber}</span>
                                     <span className="text-sm font-bold text-slate-800 truncate">{s.name}</span>
                                 </div>
-                                <code className="text-[10px] text-slate-400 font-mono hidden sm:block">{s.randomCode}</code>
                             </div>
                             <button onClick={() => onDeleteStudent(s.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">
                                 <XMarkIcon className="w-4 h-4" />
                             </button>
                         </div>
                     ))}
-                    {studentsToDisplay.length === 0 && <p className="text-center text-slate-400 text-sm py-20">条件に一致する生徒がいません</p>}
+                    {studentsToDisplay.length === 0 && <p className="text-center text-slate-400 text-sm py-20">生徒が登録されていません</p>}
                 </div>
             </div>
         </div>
