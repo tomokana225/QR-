@@ -7,3 +7,7 @@ main = "worker.ts"
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+
+# デプロイ前にビルドコマンドを実行する設定
+[build]
+command = "npm run build"
