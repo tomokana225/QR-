@@ -417,9 +417,9 @@ const App: React.FC = () => {
                 </header>
 
                 {/* ホワイトカードコンテナ */}
-                <div className="flex-grow overflow-hidden px-4 pb-4 lg:px-10 lg:pb-10">
-                    <div className="h-full bg-white rounded-2xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
-                        <div className="absolute inset-0 p-4 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
+                <div className="flex-grow overflow-hidden px-2 pb-2 lg:px-10 lg:pb-10">
+                    <div className="h-full bg-white rounded-xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
+                        <div className="absolute inset-0 p-3 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
                             {mainMode === 'dashboard' && <Dashboard students={students} submissionLists={submissionLists} gradingLists={gradingLists} onGenerateReport={(id) => { setSelectedStudentForReport(students.find(s=>s.id===id)!); setIsReportModalOpen(true); }} onLoadMockData={handleLoadMockData} />}
                             {mainMode === 'roster' && <RosterManager students={students} selectedStudentIds={selectedStudentIds} setSelectedStudentIds={setSelectedStudentIds} onAddStudent={handleAddStudent} onUpdateStudent={handleUpdateStudent} onBulkAddStudents={handleBulkAddStudents} onDeleteStudent={handleDeleteStudent} onDeleteSelectedStudents={handleDeleteSelectedStudents} />}
                             {mainMode === 'qr' && <QRGenerator students={students} />}

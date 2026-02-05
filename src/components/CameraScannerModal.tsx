@@ -7,7 +7,7 @@ const CameraScannerModal: React.FC<{
     isOpen: boolean;
     onClose: () => Promise<void>;
     onScanStudent?: (student: Student, isDuplicate?: boolean) => { success: boolean, message: string } | void;
-    onScanCode?: (code: string) => void; // 新規追加: コードを直接受け取るコールバック
+    onScanCode?: (code: string) => void;
     students: Student[];
     settings: AppSettings;
     onSettingsChange: (newSettings: Partial<AppSettings>) => void;
@@ -73,7 +73,6 @@ const CameraScannerModal: React.FC<{
             if (onScanCodeRef.current) {
                 onScanCodeRef.current(decodedText);
                 setScanFeedback({ type: 'success', message: 'QRコードを読み取りました' });
-                // 連続スキャンを防ぐため少し待機等は呼び出し元に任せるが、ここでは成功表示のみ
                 return;
             }
 
@@ -187,34 +186,46 @@ const CameraScannerModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50" onClick={handleClose}>
-            <div className={`bg-white rounded-lg shadow-xl w-full m-4 ${modalSizeClasses[settings.cameraViewSize]}`} onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
-                    <button onClick={handleClose} className="p-1 text-slate-400 hover:text-slate-600"><XMarkIcon className="w-6 h-6" /></button>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-0 md:p-4" onClick={handleClose}>
+            <div 
+                className={`bg-white w-full h-full md:h-auto md:rounded-2xl shadow-xl flex flex-col overflow-hidden relative ${modalSizeClasses[settings.cameraViewSize]}`} 
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="p-4 border-b flex justify-between items-center bg-white z-10">
+                    <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+                    <button onClick={handleClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-800 transition-colors">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
                 </div>
-                <div className="p-4">
-                    <div id={scannerId} className={`w-full rounded-lg overflow-hidden ${settings.isCameraFlipped ? 'camera-flipped' : ''}`}></div>
-                    {zoomCapabilities && (
-                        <div className="mt-4 flex items-center gap-3">
-                            <label className="text-sm font-medium">ズーム倍率:</label>
-                            <input
-                                type="range"
-                                min={zoomCapabilities.min}
-                                max={zoomCapabilities.max}
-                                step={zoomCapabilities.step}
-                                value={currentZoom}
-                                onChange={handleZoomChange}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                            />
-                        </div>
-                    )}
-                     {scanFeedback && (
-                        <div className={`flex items-center gap-3 p-3 mt-4 rounded-md text-sm font-semibold border ${scanFeedback.type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200'}`}>
-                            {scanFeedback.type === 'success' ? <CheckCircleIcon className="w-5 h-5"/> : <ExclamationTriangleIcon className="w-5 h-5"/>}
-                            <span>{scanFeedback.message}</span>
-                        </div>
-                    )}
+                
+                <div className="flex-grow flex flex-col justify-center bg-black relative overflow-hidden">
+                    <div id={scannerId} className={`w-full h-full object-cover ${settings.isCameraFlipped ? 'camera-flipped' : ''}`}></div>
+                    
+                    {/* オーバーレイUI */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
+                        {scanFeedback && (
+                            <div className={`flex items-center gap-3 p-3 mb-4 rounded-xl backdrop-blur-md border ${scanFeedback.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-50' : 'bg-red-500/20 border-red-500/50 text-red-50'}`}>
+                                {scanFeedback.type === 'success' ? <CheckCircleIcon className="w-6 h-6 flex-shrink-0"/> : <ExclamationTriangleIcon className="w-6 h-6 flex-shrink-0"/>}
+                                <span className="font-bold text-sm shadow-sm">{scanFeedback.message}</span>
+                            </div>
+                        )}
+
+                        {zoomCapabilities && (
+                            <div className="flex items-center gap-3 bg-black/40 p-3 rounded-xl backdrop-blur-sm">
+                                <span className="text-xs font-bold whitespace-nowrap">ズーム</span>
+                                <input
+                                    type="range"
+                                    min={zoomCapabilities.min}
+                                    max={zoomCapabilities.max}
+                                    step={zoomCapabilities.step}
+                                    value={currentZoom}
+                                    onChange={handleZoomChange}
+                                    className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white"
+                                />
+                                <span className="text-xs font-mono w-8 text-right">{currentZoom.toFixed(1)}x</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

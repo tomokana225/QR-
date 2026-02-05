@@ -22,7 +22,7 @@ const SubmissionChecker: React.FC<{
     const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
     const [barcodeInput, setBarcodeInput] = useState('');
     const [selectedClass, setSelectedClass] = useState('all');
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid for better visibility
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid for better visibility on mobile
     
     const activeList = submissionLists.find(l => l.id === activeSubmissionListId);
     const submissionMap = new Map<string, number>(activeList?.submissions.map(s => [s.studentId, s.timestamp]) || []);
@@ -63,7 +63,6 @@ const SubmissionChecker: React.FC<{
             csvRows.push([student.className, student.studentNumber, student.name, status, time]);
         });
 
-        // BOM (\uFEFF) を付与してExcelでの文字化けを防止
         const csvContent = "\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -76,7 +75,7 @@ const SubmissionChecker: React.FC<{
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 h-full relative">
             {/* サイドコントロール */}
             <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
                 <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
@@ -125,7 +124,7 @@ const SubmissionChecker: React.FC<{
                     </button>
                 </div>
 
-                <div className="bg-slate-900 p-6 rounded-3xl shadow-2xl shadow-indigo-900/10">
+                <div className="bg-slate-900 p-6 rounded-3xl shadow-2xl shadow-indigo-900/10 hidden lg:block">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30">
                             <CameraIcon className="w-5 h-5 text-white" />
@@ -149,7 +148,7 @@ const SubmissionChecker: React.FC<{
                     </button>
                 </div>
 
-                <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mt-auto">
+                <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 lg:mt-auto">
                     <div className="flex justify-between items-end mb-3">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
                         <span className="text-xl font-black text-indigo-600">{submissionMap.size} <span className="text-[10px] text-slate-400">/ {students.length}</span></span>
@@ -284,6 +283,15 @@ const SubmissionChecker: React.FC<{
                     )}
                 </div>
             </div>
+
+            {/* Mobile FAB */}
+            <button
+                onClick={() => setIsCameraScannerOpen(true)}
+                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center z-30 active:scale-90 transition-transform hover:bg-indigo-700"
+                aria-label="カメラを起動"
+            >
+                <CameraIcon className="w-7 h-7" />
+            </button>
 
             <CameraScannerModal
                 isOpen={isCameraScannerOpen}

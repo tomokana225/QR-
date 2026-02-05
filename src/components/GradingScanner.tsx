@@ -127,16 +127,16 @@ const GradingScanner: React.FC<{
     return (
         <div>
              <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
-                <div className="flex items-center gap-4">
-                    <select value={activeGradingListId || ''} onChange={e => onSetActiveGradingListId(e.target.value)} className="text-lg font-semibold p-2 border border-slate-300 rounded-md shadow-sm bg-white text-slate-900 max-w-xs">
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                    <select value={activeGradingListId || ''} onChange={e => onSetActiveGradingListId(e.target.value)} className="flex-grow md:flex-grow-0 text-lg font-semibold p-2 border border-slate-300 rounded-md shadow-sm bg-white text-slate-900 md:max-w-xs">
                         {sortedLists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}
                     </select>
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2 flex-shrink-0">
                         <button onClick={onCreateGradingList} className="p-2 text-slate-500 hover:text-indigo-600"><PlusIcon className="w-5 h-5" /></button>
                         {activeGradingListId && <button onClick={() => onDeleteGradingList(activeGradingListId)} className="p-2 text-slate-500 hover:text-red-600"><TrashIcon className="w-5 h-5" /></button>}
                     </div>
                 </div>
-                 <button onClick={handleExportCSV} disabled={!activeList} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50">Excel (CSV)でエクスポート</button>
+                 <button onClick={handleExportCSV} disabled={!activeList} className="w-full md:w-auto px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50">Excel (CSV)でエクスポート</button>
             </div>
              {scanResult.message && (
                 <div className={`flex items-center gap-3 p-4 mb-6 rounded-lg text-base font-semibold border ${scanResult.type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200'}`}>
@@ -157,7 +157,7 @@ const GradingScanner: React.FC<{
                         </select>
                     </div>
                 </div>
-                 <div className="bg-white p-6 rounded-lg shadow">
+                 <div className="bg-white p-6 rounded-lg shadow hidden md:block">
                     <form onSubmit={handleBarcodeSubmit}>
                         <label htmlFor="barcode-input-grading" className="block text-sm font-medium text-slate-700 mb-1">QRコードをスキャン</label>
                         <input type="text" id="barcode-input-grading" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} autoFocus className="block w-full p-2 border border-slate-300 rounded-md shadow-sm bg-white text-slate-900" placeholder="ここにカーソルを合わせてください" />
@@ -178,7 +178,7 @@ const GradingScanner: React.FC<{
                     </button>
                 </div>
             </div>
-             <div className="bg-white p-6 rounded-lg shadow">
+             <div className="bg-white p-4 md:p-6 rounded-lg shadow">
                 <div className="flex flex-wrap gap-4 justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-slate-800">採点状況</h3>
                     <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="text-sm p-2 border border-slate-300 rounded-md shadow-sm bg-white text-slate-900">
@@ -190,7 +190,8 @@ const GradingScanner: React.FC<{
                     </select>
                 </div>
                  <div className="max-h-[60vh] overflow-y-auto">
-                    <table className="w-full text-sm text-left">
+                    {/* Desktop Table View */}
+                    <table className="w-full text-sm text-left hidden md:table">
                         <thead className="bg-slate-100 sticky top-0">
                             <tr>
                                 <th className="p-3">クラス</th>
@@ -220,8 +221,47 @@ const GradingScanner: React.FC<{
                             ))}
                         </tbody>
                     </table>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-3">
+                        {studentsToDisplay.map(student => (
+                            <div key={student.id} className="border border-slate-200 rounded-xl p-4 flex items-center justify-between bg-slate-50">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">{student.className}-{student.studentNumber}</span>
+                                        <span className="font-bold text-slate-800">{student.name}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <select 
+                                        value={activeList?.scores[student.id] || ''}
+                                        onChange={e => activeGradingListId && onSetScore(activeGradingListId, student.id, e.target.value)}
+                                        className="block w-24 p-2 border border-slate-300 rounded-lg shadow-sm bg-white text-slate-900 font-bold text-center"
+                                        disabled={!activeList?.possibleScores.length}
+                                    >
+                                        <option value="">-</option>
+                                        {activeList?.possibleScores.filter(s => s).map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
+
+            {/* Mobile FAB */}
+            <button
+                onClick={() => {
+                    if (audioRef.current && settings.playSound && settings.soundEffect !== 'none') {
+                        audioRef.current.load();
+                    }
+                    setIsCameraScannerOpen(true);
+                }}
+                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center z-30 active:scale-90 transition-transform hover:bg-indigo-700"
+                aria-label="カメラを起動"
+            >
+                <CameraIcon className="w-7 h-7" />
+            </button>
             
             <CameraScannerModal
                 isOpen={isCameraScannerOpen}
