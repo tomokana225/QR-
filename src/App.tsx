@@ -129,9 +129,17 @@ const App: React.FC = () => {
 
     const handleSettingsChange = (newSettings: Partial<AppSettings>) => setSettings(prev => ({ ...prev, ...newSettings }));
 
-    const handleAddStudent = (studentData: Omit<Student, 'id' | 'randomCode'>) => {
-        const newStudent: Student = { ...studentData, id: crypto.randomUUID(), randomCode: generateRandomCode() };
+    const handleAddStudent = (studentData: { className: string; studentNumber: string; name: string; randomCode?: string }) => {
+        const newStudent: Student = { 
+            ...studentData, 
+            id: crypto.randomUUID(), 
+            randomCode: studentData.randomCode || generateRandomCode() 
+        };
         setStudents(prev => [...prev, newStudent]);
+    };
+
+    const handleUpdateStudent = (updatedStudent: Student) => {
+        setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
     };
 
     const handleBulkAddStudents = (newStudentsData: Omit<Student, 'id' | 'randomCode'>[]) => {
@@ -193,6 +201,66 @@ const App: React.FC = () => {
             return list;
         }));
     }, []);
+
+    const handleExportData = () => {
+        const data = {
+            version: '1.6',
+            exportedAt: new Date().toISOString(),
+            students,
+            submissionLists,
+            gradingLists,
+            settings: { ...settings, syncApiKey: '', syncId: '' } // APIキーは除外
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `qr_student_manager_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const json = e.target?.result as string;
+                const data = JSON.parse(json);
+                
+                setConfirmation({
+                    title: 'データのインポート',
+                    message: '現在のデータを上書きしてインポートしますか？この操作は取り消せません。',
+                    confirmButtonText: 'インポート',
+                    confirmButtonClass: 'bg-indigo-600 hover:bg-indigo-700',
+                    onConfirm: () => {
+                        if (Array.isArray(data.students)) setStudents(data.students);
+                        if (Array.isArray(data.submissionLists)) setSubmissionLists(data.submissionLists);
+                        if (Array.isArray(data.gradingLists)) setGradingLists(data.gradingLists);
+                        if (data.settings) {
+                            setSettings(prev => ({
+                                ...prev,
+                                ...data.settings,
+                                syncApiKey: prev.syncApiKey || data.settings.syncApiKey,
+                                syncId: prev.syncId || data.settings.syncId
+                            }));
+                        }
+                        setConfirmation(null);
+                        alert('データをインポートしました。');
+                    }
+                });
+            } catch (error) {
+                console.error('Import Failed:', error);
+                alert('ファイルの読み込みに失敗しました。形式が正しいか確認してください。');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    };
 
     const handleLoadMockData = () => {
         const mockNames = [
@@ -353,11 +421,11 @@ const App: React.FC = () => {
                     <div className="h-full bg-white rounded-2xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
                         <div className="absolute inset-0 p-4 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
                             {mainMode === 'dashboard' && <Dashboard students={students} submissionLists={submissionLists} gradingLists={gradingLists} onGenerateReport={(id) => { setSelectedStudentForReport(students.find(s=>s.id===id)!); setIsReportModalOpen(true); }} onLoadMockData={handleLoadMockData} />}
-                            {mainMode === 'roster' && <RosterManager students={students} selectedStudentIds={selectedStudentIds} setSelectedStudentIds={setSelectedStudentIds} onAddStudent={handleAddStudent} onBulkAddStudents={handleBulkAddStudents} onDeleteStudent={handleDeleteStudent} onDeleteSelectedStudents={handleDeleteSelectedStudents} />}
+                            {mainMode === 'roster' && <RosterManager students={students} selectedStudentIds={selectedStudentIds} setSelectedStudentIds={setSelectedStudentIds} onAddStudent={handleAddStudent} onUpdateStudent={handleUpdateStudent} onBulkAddStudents={handleBulkAddStudents} onDeleteStudent={handleDeleteStudent} onDeleteSelectedStudents={handleDeleteSelectedStudents} />}
                             {mainMode === 'qr' && <QRGenerator students={students} />}
                             {mainMode === 'submission' && <SubmissionChecker students={students} submissionLists={submissionLists} activeSubmissionListId={activeSubmissionListId} onSetSubmission={handleSetSubmission} onResetCurrentList={() => {}} onCreateSubmissionList={() => setIsCreateSubmissionListModalOpen(true)} onDeleteSubmissionList={handleDeleteSubmissionList} onSetActiveSubmissionListId={setActiveSubmissionListId} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef} setConfirmation={setConfirmation} />}
                             {mainMode === 'grading' && <GradingScanner students={students} gradingLists={gradingLists} activeGradingListId={activeGradingListId} onSetActiveGradingListId={setActiveGradingListId} onCreateGradingList={() => setIsCreateGradingListModalOpen(true)} onDeleteGradingList={() => {}} onSetScore={handleSetScore} onUpdateListDetails={() => {}} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef}/>}
-                            {mainMode === 'settings' && <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onExportData={() => {}} onImportData={() => {}} onCloudUpload={() => {}} onCloudDownload={() => {}} syncStatus={syncStatus} onLoadMockData={handleLoadMockData} />}
+                            {mainMode === 'settings' && <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onExportData={handleExportData} onImportData={handleImportData} onCloudUpload={() => { alert('クラウド同期機能は準備中です。') }} onCloudDownload={() => { alert('クラウド同期機能は準備中です。') }} syncStatus={syncStatus} onLoadMockData={handleLoadMockData} />}
                         </div>
                     </div>
                 </div>

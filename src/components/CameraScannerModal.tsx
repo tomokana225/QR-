@@ -6,14 +6,15 @@ import { XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from './Icons';
 const CameraScannerModal: React.FC<{
     isOpen: boolean;
     onClose: () => Promise<void>;
-    onScanStudent: (student: Student, isDuplicate?: boolean) => { success: boolean, message: string } | void;
+    onScanStudent?: (student: Student, isDuplicate?: boolean) => { success: boolean, message: string } | void;
+    onScanCode?: (code: string) => void; // 新規追加: コードを直接受け取るコールバック
     students: Student[];
     settings: AppSettings;
     onSettingsChange: (newSettings: Partial<AppSettings>) => void;
     scannerId: string;
     title: string;
-    activeList: SubmissionList | GradingList | undefined;
-}> = ({ isOpen, onClose, onScanStudent, students, settings, onSettingsChange, scannerId, title, activeList }) => {
+    activeList?: SubmissionList | GradingList | undefined;
+}> = ({ isOpen, onClose, onScanStudent, onScanCode, students, settings, onSettingsChange, scannerId, title, activeList }) => {
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const lastScanTimeRef = useRef(0);
     const lastScannedCodeRef = useRef<string | null>(null);
@@ -23,6 +24,9 @@ const CameraScannerModal: React.FC<{
 
     const onScanStudentRef = useRef(onScanStudent);
     useEffect(() => { onScanStudentRef.current = onScanStudent; }, [onScanStudent]);
+    
+    const onScanCodeRef = useRef(onScanCode);
+    useEffect(() => { onScanCodeRef.current = onScanCode; }, [onScanCode]);
     
     const studentsRef = useRef(students);
     useEffect(() => { studentsRef.current = students; }, [students]);
@@ -65,24 +69,35 @@ const CameraScannerModal: React.FC<{
             lastScanTimeRef.current = now;
             lastScannedCodeRef.current = decodedText;
 
-            const student = studentsRef.current.find(s => s.randomCode === decodedText);
-            if (student) {
-                const list = activeListRef.current;
-                let isDuplicate = false;
-                if(list && 'submissions' in list) { // SubmissionList
-                    isDuplicate = list.submissions.some(s => s.studentId === student.id);
-                }
-                
-                const result = onScanStudentRef.current(student, isDuplicate);
+            // Rawコードモード（紐付け用）
+            if (onScanCodeRef.current) {
+                onScanCodeRef.current(decodedText);
+                setScanFeedback({ type: 'success', message: 'QRコードを読み取りました' });
+                // 連続スキャンを防ぐため少し待機等は呼び出し元に任せるが、ここでは成功表示のみ
+                return;
+            }
 
-                if (result && result.message) {
-                    setScanFeedback(result.success ? { type: 'success', message: result.message } : { type: 'error', message: result.message });
+            // 通常モード（生徒照合）
+            if (onScanStudentRef.current) {
+                const student = studentsRef.current.find(s => s.randomCode === decodedText);
+                if (student) {
+                    const list = activeListRef.current;
+                    let isDuplicate = false;
+                    if(list && 'submissions' in list) { // SubmissionList
+                        isDuplicate = list.submissions.some(s => s.studentId === student.id);
+                    }
+                    
+                    const result = onScanStudentRef.current(student, isDuplicate);
+
+                    if (result && result.message) {
+                        setScanFeedback(result.success ? { type: 'success', message: result.message } : { type: 'error', message: result.message });
+                    } else {
+                        setScanFeedback({ type: 'success', message: `${student.name}さんの情報を読み込みました` });
+                    }
+
                 } else {
-                     setScanFeedback({ type: 'success', message: `${student.name}さんの情報を読み込みました` });
+                    setScanFeedback({ type: 'error', message: '未登録のQRコードです' });
                 }
-
-            } else {
-                setScanFeedback({ type: 'error', message: '未登録のQRコードです' });
             }
         };
 

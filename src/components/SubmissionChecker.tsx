@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Student, SubmissionList, AppSettings } from '../types';
-import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon } from './Icons';
+import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon } from './Icons';
 import CameraScannerModal from './CameraScannerModal';
 
 const SubmissionChecker: React.FC<{
@@ -22,6 +22,7 @@ const SubmissionChecker: React.FC<{
     const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
     const [barcodeInput, setBarcodeInput] = useState('');
     const [selectedClass, setSelectedClass] = useState('all');
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid for better visibility
     
     const activeList = submissionLists.find(l => l.id === activeSubmissionListId);
     const submissionMap = new Map<string, number>(activeList?.submissions.map(s => [s.studentId, s.timestamp]) || []);
@@ -77,8 +78,8 @@ const SubmissionChecker: React.FC<{
     return (
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 h-full">
             {/* サイドコントロール */}
-            <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 lg:gap-8">
-                <div className="bg-white p-6 lg:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+            <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
+                <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
                     <div className="flex justify-between items-center mb-4">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active List</label>
                         {activeSubmissionListId && (
@@ -124,7 +125,7 @@ const SubmissionChecker: React.FC<{
                     </button>
                 </div>
 
-                <div className="bg-slate-900 p-6 lg:p-8 rounded-3xl shadow-2xl shadow-indigo-900/10">
+                <div className="bg-slate-900 p-6 rounded-3xl shadow-2xl shadow-indigo-900/10">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30">
                             <CameraIcon className="w-5 h-5 text-white" />
@@ -148,7 +149,7 @@ const SubmissionChecker: React.FC<{
                     </button>
                 </div>
 
-                <div className="bg-white p-6 lg:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mt-auto">
+                <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mt-auto">
                     <div className="flex justify-between items-end mb-3">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
                         <span className="text-xl font-black text-indigo-600">{submissionMap.size} <span className="text-[10px] text-slate-400">/ {students.length}</span></span>
@@ -161,70 +162,126 @@ const SubmissionChecker: React.FC<{
 
             {/* 一覧リスト */}
             <div className="flex-grow bg-white rounded-3xl lg:rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col overflow-hidden min-h-[300px]">
-                <div className="p-6 lg:p-10 border-b border-slate-50 flex flex-wrap gap-4 justify-between items-center">
+                <div className="p-6 border-b border-slate-50 flex flex-wrap gap-4 justify-between items-center bg-white z-20">
                     <div>
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">提出状況</h3>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Status Table</p>
                     </div>
-                    <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-3 px-5 text-xs font-black bg-slate-50 border border-slate-200 rounded-xl outline-none cursor-pointer focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none">
-                        <option value="all">すべてのクラス</option>
-                        {(([...new Set(students.map(s => s.className))] as string[]).sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true }))).map(c => <option key={c} value={c}>{c}組</option>)}
-                    </select>
+                    <div className="flex items-center gap-3">
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                            <button 
+                                onClick={() => setViewMode('grid')} 
+                                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                                title="グリッド表示"
+                            >
+                                <Squares2x2Icon className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('list')} 
+                                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                                title="リスト表示"
+                            >
+                                <ListBulletIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2.5 px-4 text-xs font-black bg-slate-50 border border-slate-200 rounded-xl outline-none cursor-pointer focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none hover:bg-slate-100">
+                            <option value="all">すべてのクラス</option>
+                            {(([...new Set(students.map(s => s.className))] as string[]).sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true }))).map(c => <option key={c} value={c}>{c}組</option>)}
+                        </select>
+                    </div>
                 </div>
                 
-                <div className="flex-grow overflow-y-auto scroll-container px-4 lg:px-6">
-                    <table className="w-full text-sm text-left border-separate border-spacing-y-2">
-                        <thead className="bg-white sticky top-0 z-10">
-                            <tr className="text-slate-400">
-                                <th className="px-3 lg:px-6 py-4 font-black text-[10px] uppercase tracking-widest">生徒</th>
-                                <th className="px-3 lg:px-6 py-4 font-black text-[10px] uppercase tracking-widest">ステータス</th>
-                                <th className="px-3 lg:px-6 py-4 font-black text-[10px] uppercase tracking-widest text-right hidden sm:table-cell">確認時間</th>
-                            </tr>
-                        </thead>
-                        <tbody className="animate-fade-in">
+                <div className="flex-grow overflow-y-auto scroll-container px-4 lg:px-6 py-4">
+                    {viewMode === 'list' ? (
+                        <table className="w-full text-sm text-left border-separate border-spacing-y-1">
+                            <thead className="bg-white sticky top-0 z-10">
+                                <tr className="text-slate-400">
+                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white">生徒</th>
+                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white">ステータス</th>
+                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest text-right hidden sm:table-cell bg-white">確認時間</th>
+                                </tr>
+                            </thead>
+                            <tbody className="animate-fade-in">
+                                {studentsToDisplay.map(s => {
+                                    const timestamp = submissionMap.get(s.id);
+                                    return (
+                                        <tr key={s.id} className={`group transition-all ${timestamp ? 'bg-emerald-50/20' : 'bg-transparent hover:bg-slate-50'}`}>
+                                            <td className="px-3 py-2 rounded-l-lg border-y border-l border-transparent">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0 ${timestamp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {s.studentNumber}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase">{s.className}組</span>
+                                                            <p className="font-bold text-slate-900 text-sm truncate">{s.name}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2 border-y border-transparent">
+                                                <button 
+                                                    onClick={() => handleToggleSubmission(s.id, timestamp)}
+                                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 group/status shadow-sm whitespace-nowrap ${
+                                                        timestamp 
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-red-50 hover:text-red-700 hover:border-red-100' 
+                                                        : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-100'
+                                                    }`}
+                                                >
+                                                    {timestamp ? (
+                                                        <>
+                                                            <CheckCircleIcon className="w-3.5 h-3.5 group-hover/status:hidden" />
+                                                            <span className="group-hover/status:hidden">提出済</span>
+                                                            <span className="hidden group-hover/status:inline">取消す</span>
+                                                        </>
+                                                    ) : (
+                                                        <span>未提出</span>
+                                                    )}
+                                                </button>
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-mono text-slate-400 text-xs rounded-r-lg border-y border-r border-transparent hidden sm:table-cell">
+                                                {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 pb-10">
                             {studentsToDisplay.map(s => {
                                 const timestamp = submissionMap.get(s.id);
                                 return (
-                                    <tr key={s.id} className={`group transition-all ${timestamp ? 'bg-emerald-50/20' : 'bg-transparent hover:bg-slate-50'}`}>
-                                        <td className="px-3 lg:px-6 py-3 lg:py-5 rounded-l-xl lg:rounded-l-2xl">
-                                            <div className="flex items-center gap-3 lg:gap-4">
-                                                <div className={`w-9 h-9 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0 ${timestamp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                    {s.studentNumber}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-black text-slate-900 text-sm lg:text-base truncate">{s.name}</p>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{s.className}組</p>
-                                                </div>
+                                    <div 
+                                        key={s.id}
+                                        onClick={() => handleToggleSubmission(s.id, timestamp)}
+                                        className={`
+                                            relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between h-24 shadow-sm hover:shadow-md
+                                            ${timestamp 
+                                                ? 'bg-emerald-50 border-emerald-400 shadow-emerald-100' 
+                                                : 'bg-white border-slate-100 hover:border-indigo-300'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <span className={`text-xl font-black ${timestamp ? 'text-emerald-600' : 'text-slate-300'}`}>{s.studentNumber}</span>
+                                            {timestamp && <CheckCircleIcon className="w-5 h-5 text-emerald-500" />}
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 mb-0.5">{s.className}組</p>
+                                            <p className={`font-bold text-sm truncate leading-tight ${timestamp ? 'text-emerald-900' : 'text-slate-700'}`}>{s.name}</p>
+                                        </div>
+                                        {timestamp && (
+                                            <div className="absolute top-3 right-3 text-[10px] font-mono font-bold text-emerald-600/70">
+                                                {new Date(timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
                                             </div>
-                                        </td>
-                                        <td className="px-3 lg:px-6 py-3 lg:py-5">
-                                            <button 
-                                                onClick={() => handleToggleSubmission(s.id, timestamp)}
-                                                className={`inline-flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl text-[10px] lg:text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 group/status shadow-sm whitespace-nowrap ${
-                                                    timestamp 
-                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-red-50 hover:text-red-700 hover:border-red-100' 
-                                                    : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-100'
-                                                }`}
-                                            >
-                                                {timestamp ? (
-                                                    <>
-                                                        <CheckCircleIcon className="w-4 h-4 group-hover/status:hidden" />
-                                                        <span className="group-hover/status:hidden">提出済</span>
-                                                        <span className="hidden group-hover/status:inline">取消す</span>
-                                                    </>
-                                                ) : (
-                                                    <span>未提出</span>
-                                                )}
-                                            </button>
-                                        </td>
-                                        <td className="px-3 lg:px-6 py-3 lg:py-5 text-right font-mono text-slate-400 text-xs rounded-r-xl lg:rounded-r-2xl hidden sm:table-cell">
-                                            {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                                        </td>
-                                    </tr>
+                                        )}
+                                    </div>
                                 );
                             })}
-                        </tbody>
-                    </table>
+                        </div>
+                    )}
                 </div>
             </div>
 

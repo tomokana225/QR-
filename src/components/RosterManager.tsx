@@ -1,27 +1,58 @@
-import React, { useState } from 'react';
-import { Student } from '../types';
-import { SparklesIcon, XMarkIcon, TrashIcon } from './Icons';
+import React, { useState, useMemo } from 'react';
+import { Student, AppSettings } from '../types';
+import { SparklesIcon, XMarkIcon, TrashIcon, PencilSquareIcon, CameraIcon, QrCodeIcon, ArrowPathIcon } from './Icons';
+import EditStudentModal from './EditStudentModal';
+import CameraScannerModal from './CameraScannerModal';
 
 const RosterManager: React.FC<{
     students: Student[];
     selectedStudentIds: Set<string>;
     setSelectedStudentIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-    onAddStudent: (student: Omit<Student, 'id' | 'randomCode'>) => void;
+    onAddStudent: (student: { className: string; studentNumber: string; name: string; randomCode?: string }) => void;
+    onUpdateStudent: (student: Student) => void;
     onBulkAddStudents: (students: Omit<Student, 'id' | 'randomCode'>[]) => number;
     onDeleteStudent: (id: string) => void;
     onDeleteSelectedStudents: () => void;
-}> = ({ students, selectedStudentIds, setSelectedStudentIds, onAddStudent, onBulkAddStudents, onDeleteStudent, onDeleteSelectedStudents }) => {
+}> = ({ students, selectedStudentIds, setSelectedStudentIds, onAddStudent, onUpdateStudent, onBulkAddStudents, onDeleteStudent, onDeleteSelectedStudents }) => {
     const [className, setClassName] = useState('');
     const [studentNumber, setStudentNumber] = useState('');
     const [name, setName] = useState('');
     const [mode, setMode] = useState<'single' | 'bulk'>('single');
     const [bulkText, setBulkText] = useState('');
     const [selectedClass, setSelectedClass] = useState('all');
+    
+    // スキャン機能用の状態
+    const [scanMode, setScanMode] = useState<{
+        type: 'none' | 'single' | 'bulk';
+        targetId?: string; // single用
+        queue?: Student[]; // bulk用
+        currentIndex?: number; // bulk用
+    }>({ type: 'none' });
+
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    
+    // 編集モーダル用の状態
+    const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
+    // ダミー設定（スキャナー用）
+    const scannerSettings: AppSettings = {
+        volume: 1, isCameraFlipped: false, soundEffect: 'ping', scannerBoxSize: 200, scannerHighRes: false,
+        customSound: null, playSound: true, cameraViewSize: 'medium', cameraZoom: 1, scanCooldown: 1000,
+        syncApiKey: '', syncId: '', lastSyncTimestamp: null
+    };
 
     const handleAdd = (e: React.FormEvent) => {
         e.preventDefault();
         if (!className || !studentNumber || !name) return;
-        onAddStudent({ className, studentNumber, name });
+        
+        onAddStudent({ 
+            className, 
+            studentNumber, 
+            name,
+            // 新規登録時は常に自動生成（undefinedを渡すとApp側で生成）
+            randomCode: undefined
+        });
+        
         setStudentNumber((parseInt(studentNumber)+1).toString());
         setName('');
     };
@@ -40,11 +71,71 @@ const RosterManager: React.FC<{
         }
     };
 
-    const studentsToDisplay = students.filter(s => selectedClass === 'all' || s.className === selectedClass)
+    const studentsToDisplay = useMemo(() => {
+        return students.filter(s => selectedClass === 'all' || s.className === selectedClass)
         .sort((a,b) => {
             if (a.className !== b.className) return a.className.localeCompare(b.className, undefined, {numeric:true});
             return parseInt(a.studentNumber) - parseInt(b.studentNumber);
         });
+    }, [students, selectedClass]);
+
+    // QR紐付けロジック
+    const startSingleLink = (student: Student) => {
+        setScanMode({ type: 'single', targetId: student.id });
+        setIsScannerOpen(true);
+    };
+
+    const startBulkLink = () => {
+        if (studentsToDisplay.length === 0) return;
+        setScanMode({ type: 'bulk', queue: studentsToDisplay, currentIndex: 0 });
+        setIsScannerOpen(true);
+    };
+
+    const handleScanCode = (code: string) => {
+        if (scanMode.type === 'single' && scanMode.targetId) {
+            // 個別更新
+            const student = students.find(s => s.id === scanMode.targetId);
+            if (student) {
+                onUpdateStudent({ ...student, randomCode: code });
+                // スキャナーを閉じる
+                setIsScannerOpen(false);
+                setScanMode({ type: 'none' });
+                // 完了アラートはUX阻害になるので出さないか、ScanModal側でSuccess表示させるのが理想だが、
+                // ここではシンプルに閉じる挙動とする
+            }
+        } else if (scanMode.type === 'bulk' && scanMode.queue && scanMode.currentIndex !== undefined) {
+            // 一括更新
+            const student = scanMode.queue[scanMode.currentIndex];
+            if (student) {
+                // 生徒情報を更新
+                onUpdateStudent({ ...student, randomCode: code });
+                
+                // 次へ
+                const nextIndex = scanMode.currentIndex + 1;
+                if (nextIndex < scanMode.queue.length) {
+                    setScanMode(prev => ({ ...prev, currentIndex: nextIndex }));
+                    // ※ ここでスキャナーは閉じず、次の生徒の読み取り待ちになる
+                } else {
+                    setIsScannerOpen(false);
+                    setScanMode({ type: 'none' });
+                    alert('表示されている全ての生徒の紐付けが完了しました。');
+                }
+            }
+        }
+    };
+
+    // スキャナーのタイトル生成
+    const getScannerTitle = () => {
+        if (scanMode.type === 'single') {
+            const s = students.find(st => st.id === scanMode.targetId);
+            return s ? `QR紐付け: ${s.name}` : 'QR紐付け';
+        }
+        if (scanMode.type === 'bulk' && scanMode.queue && scanMode.currentIndex !== undefined) {
+            const s = scanMode.queue[scanMode.currentIndex];
+            return `QR一括紐付け (${scanMode.currentIndex + 1}/${scanMode.queue.length}): ${s.name}`;
+        }
+        return 'QRコードスキャン';
+    };
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 h-full">
@@ -70,7 +161,8 @@ const RosterManager: React.FC<{
                                 <label className="text-[10px] font-black text-slate-400 uppercase">氏名</label>
                                 <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="山田 太郎" required />
                             </div>
-                            <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+
+                            <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 mt-2">
                                 <SparklesIcon className="w-4 h-4" /> 登録
                             </button>
                         </form>
@@ -97,14 +189,28 @@ const RosterManager: React.FC<{
 
             {/* Student List */}
             <div className="flex-grow bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden min-h-[300px]">
-                <div className="p-4 lg:p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-                    <h3 className="font-black text-slate-800 tracking-tight">登録生徒一覧</h3>
-                    <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 text-xs font-bold bg-slate-100 border-none rounded-lg outline-none cursor-pointer">
-                        <option value="all">全クラス</option>
-                        {Array.from(new Set(students.map(s => s.className))).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c => (
-                            <option key={c} value={c}>{c}組</option>
-                        ))}
-                    </select>
+                <div className="p-4 lg:p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
+                    <h3 className="font-black text-slate-800 tracking-tight flex items-center gap-2">
+                        登録生徒一覧
+                        <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{studentsToDisplay.length}名</span>
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={startBulkLink}
+                            className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                            disabled={studentsToDisplay.length === 0}
+                            title="表示中の生徒に対して、上から順にQRコードを読み取って紐付けます"
+                        >
+                            <QrCodeIcon className="w-4 h-4" />
+                            QR一括紐付け
+                        </button>
+                        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 text-xs font-bold bg-slate-100 border-none rounded-lg outline-none cursor-pointer">
+                            <option value="all">全クラス</option>
+                            {(Array.from(new Set(students.map(s => s.className))) as string[]).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(c => (
+                                <option key={c} value={c}>{c}組</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 space-y-2">
                     {studentsToDisplay.map(s => (
@@ -120,19 +226,68 @@ const RosterManager: React.FC<{
                                 className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 flex-shrink-0"
                             />
                             <div className="flex-grow min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s.className}-{s.studentNumber}</span>
-                                    <span className="text-sm font-bold text-slate-800 truncate">{s.name}</span>
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s.className}-{s.studentNumber}</span>
+                                        <span className="text-sm font-bold text-slate-800 truncate">{s.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 mt-1">
+                                        <QrCodeIcon className="w-3 h-3 text-slate-300" />
+                                        <span className="text-[10px] font-mono text-slate-400">{s.randomCode}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <button onClick={() => onDeleteStudent(s.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">
-                                <XMarkIcon className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                                <button 
+                                    onClick={() => startSingleLink(s)}
+                                    className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
+                                    title="QRコードを紐付け・再設定"
+                                >
+                                    <QrCodeIcon className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={() => setEditingStudent(s)} 
+                                    className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
+                                    title="編集"
+                                >
+                                    <PencilSquareIcon className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={() => onDeleteStudent(s.id)} 
+                                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                    title="削除"
+                                >
+                                    <XMarkIcon className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
                     ))}
                     {studentsToDisplay.length === 0 && <p className="text-center text-slate-400 text-sm py-20">生徒が登録されていません</p>}
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            <EditStudentModal 
+                isOpen={!!editingStudent}
+                onClose={() => setEditingStudent(null)}
+                onSave={onUpdateStudent}
+                student={editingStudent}
+            />
+
+            {/* QR Scanner Modal for Linking */}
+            <CameraScannerModal 
+                isOpen={isScannerOpen}
+                onClose={async () => {
+                    setIsScannerOpen(false);
+                    setScanMode({ type: 'none' });
+                }}
+                onScanCode={handleScanCode}
+                students={students}
+                settings={scannerSettings}
+                onSettingsChange={() => {}}
+                scannerId="qr-linker-scanner"
+                title={getScannerTitle()}
+            />
         </div>
     );
 };
