@@ -1,6 +1,8 @@
-import React from 'react';
-import { AppSettings } from '../types';
+import React, { useState } from 'react';
+import { AppSettings, FirebaseConfig } from '../types';
 import { DocumentArrowDownIcon, DocumentArrowUpIcon, CloudArrowUpIcon, CloudArrowDownIcon, SparklesIcon } from './Icons';
+import { signIn, signOut } from '../utils/firebase';
+import { User } from 'firebase/auth';
 
 const SettingsPage: React.FC<{
     settings: AppSettings;
@@ -11,8 +13,13 @@ const SettingsPage: React.FC<{
     onCloudDownload: () => void;
     syncStatus: string;
     onLoadMockData: () => void;
-}> = ({ settings, onSettingsChange, onExportData, onImportData, onCloudUpload, onCloudDownload, syncStatus, onLoadMockData }) => {
+    user: User | null;
+}> = ({ settings, onSettingsChange, onExportData, onImportData, onCloudUpload, onCloudDownload, syncStatus, onLoadMockData, user }) => {
     
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPass, setLoginPass] = useState('');
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+
     const handleCustomSoundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -25,11 +32,44 @@ const SettingsPage: React.FC<{
         }
     };
     
+    const handleFirebaseConfigChange = (key: keyof FirebaseConfig, value: string) => {
+        onSettingsChange({
+            firebaseConfig: {
+                ...settings.firebaseConfig,
+                [key]: value
+            }
+        });
+    };
+
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoggingIn(true);
+        try {
+            await signIn(loginEmail, loginPass);
+            alert('ログインしました');
+            setLoginPass('');
+        } catch (error: any) {
+            alert('ログイン失敗: ' + error.message);
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            alert('ログアウトしました');
+        } catch (error: any) {
+            alert('ログアウト失敗: ' + error.message);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-12">
             <h2 className="text-2xl font-bold text-slate-800">詳細設定</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* スキャン設定 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <h3 className="text-lg font-semibold mb-4 text-slate-700 flex items-center gap-2">
                         スキャン設定
@@ -62,6 +102,7 @@ const SettingsPage: React.FC<{
                     </div>
                 </div>
 
+                {/* 音響設定 */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <h3 className="text-lg font-semibold mb-4 text-slate-700">音響・通知</h3>
                     <div className="space-y-4">
@@ -89,46 +130,92 @@ const SettingsPage: React.FC<{
                 </div>
             </div>
 
+            {/* クラウド同期 (Firebase) */}
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="text-lg font-semibold mb-6 text-slate-700">データ同期と管理</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                        <CloudArrowUpIcon className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-700">クラウド同期 (Firebase)</h3>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* 設定フォーム */}
                     <div className="space-y-4">
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                            JSONBin.ioと同期して、PCとスマートフォンなど複数の端末間で名簿や記録を共有できます。
+                        <p className="text-xs text-slate-500 font-medium">
+                            Firebaseプロジェクトの構成情報を入力してください。設定はブラウザに保存されます。
                         </p>
-                        <input type="password" value={settings.syncApiKey} onChange={e => onSettingsChange({ syncApiKey: e.target.value })} placeholder="Bin API Key" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"/>
-                        <input type="text" value={settings.syncId} onChange={e => onSettingsChange({ syncId: e.target.value })} placeholder="Bin ID" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"/>
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={onCloudUpload} className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-700">
-                                <CloudArrowUpIcon className="w-4 h-4" /> アップロード
-                            </button>
-                            <button onClick={onCloudDownload} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-500">
-                                <CloudArrowDownIcon className="w-4 h-4" /> ダウンロード
-                            </button>
+                        <div className="grid grid-cols-1 gap-3">
+                            <input type="text" value={settings.firebaseConfig?.apiKey || ''} onChange={e => handleFirebaseConfigChange('apiKey', e.target.value)} placeholder="API Key" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                            <input type="text" value={settings.firebaseConfig?.authDomain || ''} onChange={e => handleFirebaseConfigChange('authDomain', e.target.value)} placeholder="Auth Domain" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                            <input type="text" value={settings.firebaseConfig?.projectId || ''} onChange={e => handleFirebaseConfigChange('projectId', e.target.value)} placeholder="Project ID" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                            <input type="text" value={settings.firebaseConfig?.storageBucket || ''} onChange={e => handleFirebaseConfigChange('storageBucket', e.target.value)} placeholder="Storage Bucket" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                            <input type="text" value={settings.firebaseConfig?.messagingSenderId || ''} onChange={e => handleFirebaseConfigChange('messagingSenderId', e.target.value)} placeholder="Messaging Sender ID" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                            <input type="text" value={settings.firebaseConfig?.appId || ''} onChange={e => handleFirebaseConfigChange('appId', e.target.value)} placeholder="App ID" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
                         </div>
                     </div>
-                    <div className="space-y-4 border-l border-slate-100 pl-8">
-                        <p className="text-xs text-slate-500 font-medium mb-4">バックアップや試用データの操作</p>
-                        <button onClick={onExportData} className="w-full py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
-                            <DocumentArrowDownIcon className="w-4 h-4" /> データをエクスポート
-                        </button>
-                        <label className="w-full py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all cursor-pointer">
-                            <DocumentArrowUpIcon className="w-4 h-4" /> データをインポート
-                            <input type="file" accept=".json" onChange={onImportData} className="hidden"/>
-                        </label>
-                        <div className="pt-2 border-t border-slate-50 mt-4">
-                            <button 
-                                onClick={onLoadMockData}
-                                className="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all"
-                            >
-                                <SparklesIcon className="w-4 h-4" /> デモデータを追加生成
-                            </button>
-                        </div>
+
+                    {/* 認証・操作エリア */}
+                    <div className="space-y-6 border-l border-slate-100 pl-0 lg:pl-8 pt-6 lg:pt-0">
+                         {!user ? (
+                            <form onSubmit={handleLogin} className="space-y-4 bg-slate-50 p-4 rounded-xl">
+                                <h4 className="text-sm font-bold text-slate-700">ログイン</h4>
+                                <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="メールアドレス" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm" required/>
+                                <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} placeholder="パスワード" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm" required/>
+                                <button type="submit" disabled={isLoggingIn} className="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50">
+                                    {isLoggingIn ? '処理中...' : 'ログイン'}
+                                </button>
+                                <p className="text-[10px] text-slate-400 text-center">※ユーザー登録はFirebaseコンソールで行ってください</p>
+                            </form>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                                    <p className="text-xs text-emerald-600 font-bold mb-1">ログイン中</p>
+                                    <p className="text-sm font-medium text-emerald-800 break-all">{user.email}</p>
+                                    <button onClick={handleLogout} className="mt-3 text-xs text-red-500 hover:text-red-700 underline">ログアウト</button>
+                                </div>
+                                
+                                <div className="flex gap-2">
+                                    <button onClick={onCloudUpload} className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-700 shadow-lg shadow-slate-200">
+                                        <CloudArrowUpIcon className="w-4 h-4" /> アップロード
+                                    </button>
+                                    <button onClick={onCloudDownload} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-500 shadow-lg shadow-indigo-200">
+                                        <CloudArrowDownIcon className="w-4 h-4" /> ダウンロード
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-slate-400 text-center mt-2">
+                                    ※「アップロード」は現在のデータでクラウドを上書きします。<br/>
+                                    ※「ダウンロード」はクラウドのデータで現在を上書きします。
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
-                <div className="mt-8 pt-6 border-t border-slate-50 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                 <div className="mt-6 pt-4 border-t border-slate-50 flex items-center gap-2 justify-end">
+                    <div className={`w-2 h-2 rounded-full ${syncStatus.includes('エラー') ? 'bg-red-500' : 'bg-green-500'}`}></div>
                     <span className="text-xs text-slate-400 font-medium">{syncStatus}</span>
+                </div>
+            </div>
+
+            {/* ファイル操作（バックアップ） */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 className="text-lg font-semibold mb-4 text-slate-700">ローカルバックアップ</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onClick={onExportData} className="w-full py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
+                        <DocumentArrowDownIcon className="w-4 h-4" /> ファイルに書き出し
+                    </button>
+                    <label className="w-full py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all cursor-pointer">
+                        <DocumentArrowUpIcon className="w-4 h-4" /> ファイルから読み込み
+                        <input type="file" accept=".json" onChange={onImportData} className="hidden"/>
+                    </label>
+                </div>
+                <div className="pt-6 border-t border-slate-50 mt-6">
+                     <button 
+                        onClick={onLoadMockData}
+                        className="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all"
+                    >
+                        <SparklesIcon className="w-4 h-4" /> デモデータを追加生成
+                    </button>
                 </div>
             </div>
         </div>

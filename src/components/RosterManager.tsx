@@ -46,7 +46,8 @@ const RosterManager: React.FC<{
     const scannerSettings: AppSettings = {
         volume: 1, isCameraFlipped: false, soundEffect: 'ping', scannerBoxSize: 200, scannerHighRes: false,
         customSound: null, playSound: true, cameraViewSize: 'medium', cameraZoom: 1, scanCooldown: 1000,
-        syncApiKey: '', syncId: '', lastSyncTimestamp: null
+        syncApiKey: '', syncId: '', lastSyncTimestamp: null,
+        firebaseConfig: { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '' }
     };
 
     const handleAdd = (e: React.FormEvent) => {

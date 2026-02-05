@@ -56,6 +56,15 @@ export interface LayoutSettings {
 
 export type SoundEffect = 'ping' | 'chime' | 'click' | 'none';
 
+export interface FirebaseConfig {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket: string;
+    messagingSenderId: string;
+    appId: string;
+}
+
 export interface AppSettings {
     volume: number;
     isCameraFlipped: boolean;
@@ -67,6 +76,9 @@ export interface AppSettings {
     cameraViewSize: 'small' | 'medium' | 'large';
     cameraZoom: number;
     scanCooldown: number;
+    // Firebase Config
+    firebaseConfig: FirebaseConfig;
+    // Legacy Sync (Optional to keep or remove, keeping for backward compat if needed)
     syncApiKey: string;
     syncId: string;
     lastSyncTimestamp: number | null;

@@ -8,8 +8,10 @@ import Dashboard from './components/Dashboard';
 import StudentReportModal from './components/StudentReportModal';
 import CreateListModal from './components/CreateListModal';
 import ConfirmationModal from './components/ConfirmationModal';
-import { Student, SubmissionList, GradingList, AppSettings, SOUNDS } from './types';
+import { Student, SubmissionList, GradingList, AppSettings, SOUNDS, FirebaseConfig } from './types';
 import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon } from './components/Icons';
+import { initFirebase, saveToCloud, loadFromCloud, getFirebaseAuth } from './utils/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const generateRandomCode = (length = 8) => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -54,6 +56,9 @@ const App: React.FC = () => {
         cameraViewSize: 'medium',
         cameraZoom: 1,
         scanCooldown: 1000,
+        firebaseConfig: {
+            apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
+        },
         syncApiKey: '',
         syncId: '',
         lastSyncTimestamp: null,
@@ -61,6 +66,7 @@ const App: React.FC = () => {
 
     const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; confirmButtonText?: string; cancelButtonText?: string; confirmButtonClass?: string; } | null>(null);
     const [syncStatus, setSyncStatus] = useState<string>('未同期');
+    const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
 
     const audioRef = useRef<HTMLAudioElement>(new Audio(SOUNDS.ping));
 
@@ -79,6 +85,7 @@ const App: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // データ読み込み
     useEffect(() => {
         try {
             const savedStudents = localStorage.getItem('students');
@@ -103,6 +110,24 @@ const App: React.FC = () => {
             }
         } catch (error) { console.error(error); }
     }, []);
+
+    // Firebase初期化とAuth監視
+    useEffect(() => {
+        if (settings.firebaseConfig && settings.firebaseConfig.apiKey) {
+            const fb = initFirebase(settings.firebaseConfig);
+            if (fb && fb.auth) {
+                const unsubscribe = onAuthStateChanged(fb.auth, (user) => {
+                    setFirebaseUser(user);
+                    if (user) {
+                        setSyncStatus('ログイン中: ' + user.email);
+                    } else {
+                        setSyncStatus('未ログイン');
+                    }
+                });
+                return () => unsubscribe();
+            }
+        }
+    }, [settings.firebaseConfig]);
 
     useEffect(() => { localStorage.setItem('students', JSON.stringify(students)); }, [students]);
     useEffect(() => { localStorage.setItem('submissionLists', JSON.stringify(submissionLists)); }, [submissionLists]);
@@ -209,7 +234,7 @@ const App: React.FC = () => {
             students,
             submissionLists,
             gradingLists,
-            settings: { ...settings, syncApiKey: '', syncId: '' } // APIキーは除外
+            settings: { ...settings, firebaseConfig: { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '' } } // Configは除外
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -245,8 +270,7 @@ const App: React.FC = () => {
                             setSettings(prev => ({
                                 ...prev,
                                 ...data.settings,
-                                syncApiKey: prev.syncApiKey || data.settings.syncApiKey,
-                                syncId: prev.syncId || data.settings.syncId
+                                firebaseConfig: prev.firebaseConfig.apiKey ? prev.firebaseConfig : data.settings.firebaseConfig
                             }));
                         }
                         setConfirmation(null);
@@ -260,6 +284,88 @@ const App: React.FC = () => {
         };
         reader.readAsText(file);
         event.target.value = '';
+    };
+
+    // Firebase同期：アップロード
+    const handleCloudUpload = async () => {
+        if (!firebaseUser) {
+            alert('クラウド同期にはログインが必要です。設定ページからログインしてください。');
+            setMainMode('settings');
+            return;
+        }
+        
+        setConfirmation({
+            title: 'クラウドへアップロード',
+            message: '現在のデータでクラウド上のデータを上書きします。よろしいですか？',
+            confirmButtonText: 'アップロード',
+            onConfirm: async () => {
+                try {
+                    setSyncStatus('アップロード中...');
+                    await saveToCloud(firebaseUser.uid, {
+                        students,
+                        submissionLists,
+                        gradingLists,
+                        settings
+                    });
+                    const now = Date.now();
+                    setSettings(prev => ({ ...prev, lastSyncTimestamp: now }));
+                    setSyncStatus('同期完了: ' + new Date(now).toLocaleString());
+                    alert('アップロードが完了しました。');
+                } catch (e: any) {
+                    console.error(e);
+                    setSyncStatus('エラー: アップロード失敗');
+                    alert('アップロードに失敗しました: ' + e.message);
+                } finally {
+                    setConfirmation(null);
+                }
+            }
+        });
+    };
+
+    // Firebase同期：ダウンロード
+    const handleCloudDownload = async () => {
+        if (!firebaseUser) {
+            alert('クラウド同期にはログインが必要です。設定ページからログインしてください。');
+            setMainMode('settings');
+            return;
+        }
+
+        setConfirmation({
+            title: 'クラウドからダウンロード',
+            message: 'クラウド上のデータで現在のデータを上書きします。よろしいですか？',
+            confirmButtonText: 'ダウンロード',
+            confirmButtonClass: 'bg-orange-600 hover:bg-orange-700',
+            onConfirm: async () => {
+                try {
+                    setSyncStatus('ダウンロード中...');
+                    const data = await loadFromCloud(firebaseUser.uid);
+                    if (data) {
+                        setStudents(data.students || []);
+                        setSubmissionLists(data.submissionLists || []);
+                        setGradingLists(data.gradingLists || []);
+                        if (data.settings) {
+                            setSettings(prev => ({
+                                ...prev,
+                                ...data.settings,
+                                // 設定系は維持したい場合もあるが、同期の観点では上書きが正しい
+                            }));
+                        }
+                        const now = Date.now();
+                        setSyncStatus('同期完了: ' + new Date(now).toLocaleString());
+                        alert('ダウンロードが完了しました。');
+                    } else {
+                        setSyncStatus('データなし');
+                        alert('クラウドにデータが見つかりませんでした。');
+                    }
+                } catch (e: any) {
+                    console.error(e);
+                    setSyncStatus('エラー: ダウンロード失敗');
+                    alert('ダウンロードに失敗しました: ' + e.message);
+                } finally {
+                    setConfirmation(null);
+                }
+            }
+        });
     };
 
     const handleLoadMockData = () => {
@@ -385,7 +491,7 @@ const App: React.FC = () => {
                         <div className="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/30">
                             <p className="text-slate-500 text-[9px] uppercase font-black tracking-widest mb-2 whitespace-nowrap">Sync Status</p>
                             <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus.includes('エラー') ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+                                <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus.includes('エラー') || syncStatus.includes('未') ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
                                 <p className="text-slate-300 text-[11px] font-bold truncate">{syncStatus}</p>
                             </div>
                         </div>
@@ -425,7 +531,7 @@ const App: React.FC = () => {
                             {mainMode === 'qr' && <QRGenerator students={students} />}
                             {mainMode === 'submission' && <SubmissionChecker students={students} submissionLists={submissionLists} activeSubmissionListId={activeSubmissionListId} onSetSubmission={handleSetSubmission} onResetCurrentList={() => {}} onCreateSubmissionList={() => setIsCreateSubmissionListModalOpen(true)} onDeleteSubmissionList={handleDeleteSubmissionList} onSetActiveSubmissionListId={setActiveSubmissionListId} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef} setConfirmation={setConfirmation} />}
                             {mainMode === 'grading' && <GradingScanner students={students} gradingLists={gradingLists} activeGradingListId={activeGradingListId} onSetActiveGradingListId={setActiveGradingListId} onCreateGradingList={() => setIsCreateGradingListModalOpen(true)} onDeleteGradingList={() => {}} onSetScore={handleSetScore} onUpdateListDetails={() => {}} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef}/>}
-                            {mainMode === 'settings' && <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onExportData={handleExportData} onImportData={handleImportData} onCloudUpload={() => { alert('クラウド同期機能は準備中です。') }} onCloudDownload={() => { alert('クラウド同期機能は準備中です。') }} syncStatus={syncStatus} onLoadMockData={handleLoadMockData} />}
+                            {mainMode === 'settings' && <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onExportData={handleExportData} onImportData={handleImportData} onCloudUpload={handleCloudUpload} onCloudDownload={handleCloudDownload} syncStatus={syncStatus} onLoadMockData={handleLoadMockData} user={firebaseUser} />}
                         </div>
                     </div>
                 </div>
