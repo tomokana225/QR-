@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Student, SubmissionList, AppSettings } from '../types';
-import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon } from './Icons';
+import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon, ChevronRightIcon, Cog6ToothIcon } from './Icons';
 import CameraScannerModal from './CameraScannerModal';
 
 const SubmissionChecker: React.FC<{
@@ -23,6 +23,11 @@ const SubmissionChecker: React.FC<{
     const [barcodeInput, setBarcodeInput] = useState('');
     const [selectedClass, setSelectedClass] = useState('all');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid for better visibility on mobile
+    const [isMenuOpen, setIsMenuOpen] = useState(true);
+
+    useEffect(() => {
+        setIsMenuOpen(window.innerWidth >= 1024);
+    }, []);
     
     const activeList = submissionLists.find(l => l.id === activeSubmissionListId);
     const submissionMap = new Map<string, number>(activeList?.submissions.map(s => [s.studentId, s.timestamp]) || []);
@@ -76,8 +81,20 @@ const SubmissionChecker: React.FC<{
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 h-full relative">
+            {/* Mobile Toggle Button */}
+            <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="lg:hidden w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center text-slate-700 font-bold active:bg-slate-50 transition-colors"
+            >
+                <span className="flex items-center gap-2">
+                    <Cog6ToothIcon className="w-5 h-5 text-indigo-500" />
+                    リスト選択・操作メニュー
+                </span>
+                <ChevronRightIcon className={`w-5 h-5 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : ''}`} />
+            </button>
+
             {/* サイドコントロール */}
-            <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
+            <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 transition-all duration-300 ${isMenuOpen ? 'block' : 'hidden lg:flex'}`}>
                 <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
                     <div className="flex justify-between items-center mb-4">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active List</label>
@@ -214,33 +231,27 @@ const SubmissionChecker: React.FC<{
                                                     <div className="min-w-0">
                                                         <div className="flex items-baseline gap-2">
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase">{s.className}組</span>
-                                                            <p className="font-bold text-slate-900 text-sm truncate">{s.name}</p>
+                                                            <span className="font-bold text-slate-700">{s.name}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 mt-0.5">
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${timestamp ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                                                            <span className={`text-xs ${timestamp ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                                                                {timestamp ? '提出済み' : '未提出'}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2 border-y border-transparent">
-                                                <button 
+                                            <td className="px-3 py-2 rounded-r-lg border-y border-r border-transparent text-right">
+                                                <button
                                                     onClick={() => handleToggleSubmission(s.id, timestamp)}
-                                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 group/status shadow-sm whitespace-nowrap ${
-                                                        timestamp 
-                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-red-50 hover:text-red-700 hover:border-red-100' 
-                                                        : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-100'
-                                                    }`}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timestamp ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
                                                 >
-                                                    {timestamp ? (
-                                                        <>
-                                                            <CheckCircleIcon className="w-3.5 h-3.5 group-hover/status:hidden" />
-                                                            <span className="group-hover/status:hidden">提出済</span>
-                                                            <span className="hidden group-hover/status:inline">取消す</span>
-                                                        </>
-                                                    ) : (
-                                                        <span>未提出</span>
-                                                    )}
+                                                    {timestamp ? '取り消し' : '承認'}
                                                 </button>
-                                            </td>
-                                            <td className="px-3 py-2 text-right font-mono text-slate-400 text-xs rounded-r-lg border-y border-r border-transparent hidden sm:table-cell">
-                                                {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                                                    {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -248,34 +259,23 @@ const SubmissionChecker: React.FC<{
                             </tbody>
                         </table>
                     ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 pb-10">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-20">
                             {studentsToDisplay.map(s => {
                                 const timestamp = submissionMap.get(s.id);
                                 return (
                                     <div 
-                                        key={s.id}
+                                        key={s.id} 
                                         onClick={() => handleToggleSubmission(s.id, timestamp)}
-                                        className={`
-                                            relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between h-24 shadow-sm hover:shadow-md
-                                            ${timestamp 
-                                                ? 'bg-emerald-50 border-emerald-400 shadow-emerald-100' 
-                                                : 'bg-white border-slate-100 hover:border-indigo-300'
-                                            }
-                                        `}
+                                        className={`relative p-4 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${timestamp ? 'bg-emerald-50 border-emerald-100 shadow-emerald-100' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-500/10'}`}
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <span className={`text-xl font-black ${timestamp ? 'text-emerald-600' : 'text-slate-300'}`}>{s.studentNumber}</span>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-[10px] font-black bg-white/50 px-2 py-1 rounded text-slate-500">{s.className}-{s.studentNumber}</span>
                                             {timestamp && <CheckCircleIcon className="w-5 h-5 text-emerald-500" />}
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 mb-0.5">{s.className}組</p>
-                                            <p className={`font-bold text-sm truncate leading-tight ${timestamp ? 'text-emerald-900' : 'text-slate-700'}`}>{s.name}</p>
-                                        </div>
-                                        {timestamp && (
-                                            <div className="absolute top-3 right-3 text-[10px] font-mono font-bold text-emerald-600/70">
-                                                {new Date(timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        )}
+                                        <h4 className="font-bold text-slate-800 text-sm mb-1 truncate">{s.name}</h4>
+                                        <p className={`text-xs font-bold ${timestamp ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                            {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}) : '未提出'}
+                                        </p>
                                     </div>
                                 );
                             })}
@@ -288,7 +288,6 @@ const SubmissionChecker: React.FC<{
             <button
                 onClick={() => setIsCameraScannerOpen(true)}
                 className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center z-30 active:scale-90 transition-transform hover:bg-indigo-700"
-                aria-label="カメラを起動"
             >
                 <CameraIcon className="w-7 h-7" />
             </button>
@@ -298,11 +297,11 @@ const SubmissionChecker: React.FC<{
                 onClose={async () => setIsCameraScannerOpen(false)}
                 onScanStudent={handleSubmissionScan}
                 students={students}
-                activeList={activeList}
                 settings={settings}
                 onSettingsChange={onSettingsChange}
                 scannerId="qr-reader-submission"
-                title="Scanner"
+                title="提出チェックQRスキャン"
+                activeList={activeList}
             />
         </div>
     );

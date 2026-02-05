@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Student, AppSettings } from '../types';
-import { SparklesIcon, XMarkIcon, TrashIcon, PencilSquareIcon, CameraIcon, QrCodeIcon, ArrowPathIcon } from './Icons';
+import { SparklesIcon, XMarkIcon, TrashIcon, PencilSquareIcon, CameraIcon, QrCodeIcon, ArrowPathIcon, ChevronRightIcon } from './Icons';
 import EditStudentModal from './EditStudentModal';
 import CameraScannerModal from './CameraScannerModal';
 
@@ -34,6 +34,14 @@ const RosterManager: React.FC<{
     // 編集モーダル用の状態
     const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
+    // モバイルメニュー（フォーム）の開閉状態
+    const [isMenuOpen, setIsMenuOpen] = useState(true);
+
+    useEffect(() => {
+        // デスクトップならデフォルトで開く、モバイルなら閉じる
+        setIsMenuOpen(window.innerWidth >= 1024);
+    }, []);
+
     // ダミー設定（スキャナー用）
     const scannerSettings: AppSettings = {
         volume: 1, isCameraFlipped: false, soundEffect: 'ping', scannerBoxSize: 200, scannerHighRes: false,
@@ -49,7 +57,6 @@ const RosterManager: React.FC<{
             className, 
             studentNumber, 
             name,
-            // 新規登録時は常に自動生成（undefinedを渡すとApp側で生成）
             randomCode: undefined
         });
         
@@ -79,7 +86,6 @@ const RosterManager: React.FC<{
         });
     }, [students, selectedClass]);
 
-    // QR紐付けロジック
     const startSingleLink = (student: Student) => {
         setScanMode({ type: 'single', targetId: student.id });
         setIsScannerOpen(true);
@@ -93,28 +99,19 @@ const RosterManager: React.FC<{
 
     const handleScanCode = (code: string) => {
         if (scanMode.type === 'single' && scanMode.targetId) {
-            // 個別更新
             const student = students.find(s => s.id === scanMode.targetId);
             if (student) {
                 onUpdateStudent({ ...student, randomCode: code });
-                // スキャナーを閉じる
                 setIsScannerOpen(false);
                 setScanMode({ type: 'none' });
-                // 完了アラートはUX阻害になるので出さないか、ScanModal側でSuccess表示させるのが理想だが、
-                // ここではシンプルに閉じる挙動とする
             }
         } else if (scanMode.type === 'bulk' && scanMode.queue && scanMode.currentIndex !== undefined) {
-            // 一括更新
             const student = scanMode.queue[scanMode.currentIndex];
             if (student) {
-                // 生徒情報を更新
                 onUpdateStudent({ ...student, randomCode: code });
-                
-                // 次へ
                 const nextIndex = scanMode.currentIndex + 1;
                 if (nextIndex < scanMode.queue.length) {
                     setScanMode(prev => ({ ...prev, currentIndex: nextIndex }));
-                    // ※ ここでスキャナーは閉じず、次の生徒の読み取り待ちになる
                 } else {
                     setIsScannerOpen(false);
                     setScanMode({ type: 'none' });
@@ -124,7 +121,6 @@ const RosterManager: React.FC<{
         }
     };
 
-    // スキャナーのタイトル生成
     const getScannerTitle = () => {
         if (scanMode.type === 'single') {
             const s = students.find(st => st.id === scanMode.targetId);
@@ -139,8 +135,20 @@ const RosterManager: React.FC<{
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 h-full">
+            {/* Mobile Toggle Button */}
+            <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="lg:hidden w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center text-slate-700 font-bold active:bg-slate-50 transition-colors"
+            >
+                <span className="flex items-center gap-2">
+                    <PencilSquareIcon className="w-5 h-5 text-indigo-500" />
+                    生徒登録・編集メニュー
+                </span>
+                <ChevronRightIcon className={`w-5 h-5 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : ''}`} />
+            </button>
+
             {/* Registration Form */}
-            <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
+            <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 transition-all duration-300 ${isMenuOpen ? 'block' : 'hidden lg:flex'}`}>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
                         <button onClick={() => setMode('single')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${mode === 'single' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>個別</button>
