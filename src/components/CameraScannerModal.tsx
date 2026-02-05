@@ -21,6 +21,8 @@ const CameraScannerModal: React.FC<{
     const [zoomCapabilities, setZoomCapabilities] = useState<{ min: number; max: number; step: number; } | null>(null);
     const [currentZoom, setCurrentZoom] = useState(settings.cameraZoom);
     const [scanFeedback, setScanFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
+    // Keep track of recent scans for display
+    const [recentScans, setRecentScans] = useState<{name: string, time: string, status: 'success' | 'error'}[]>([]);
 
     const onScanStudentRef = useRef(onScanStudent);
     useEffect(() => { onScanStudentRef.current = onScanStudent; }, [onScanStudent]);
@@ -36,6 +38,19 @@ const CameraScannerModal: React.FC<{
     
     const activeListRef = useRef(activeList);
     useEffect(() => { activeListRef.current = activeList; }, [activeList]);
+
+    // Reset duplicate check when title changes (e.g., next student in bulk mode)
+    useEffect(() => {
+        lastScannedCodeRef.current = null;
+    }, [title]);
+
+    // Clear recent scans when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setRecentScans([]);
+            setScanFeedback(null);
+        }
+    }, [isOpen]);
 
     const handleClose = useCallback(async () => {
         if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
@@ -53,8 +68,6 @@ const CameraScannerModal: React.FC<{
             return;
         }
         
-        setScanFeedback(null);
-
         const html5QrCode = new Html5Qrcode(scannerId, { verbose: false });
         html5QrCodeRef.current = html5QrCode;
 
@@ -72,7 +85,9 @@ const CameraScannerModal: React.FC<{
             // Rawコードモード（紐付け用）
             if (onScanCodeRef.current) {
                 onScanCodeRef.current(decodedText);
-                setScanFeedback({ type: 'success', message: 'QRコードを読み取りました' });
+                const feedback = { type: 'success' as const, message: 'QRコードを読み取りました' };
+                setScanFeedback(feedback);
+                // Note: In bulk mode, the parent component might change the 'title' prop quickly after this.
                 return;
             }
 
@@ -87,11 +102,15 @@ const CameraScannerModal: React.FC<{
                     }
                     
                     const result = onScanStudentRef.current(student, isDuplicate);
-
+                    
+                    const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    
                     if (result && result.message) {
                         setScanFeedback(result.success ? { type: 'success', message: result.message } : { type: 'error', message: result.message });
+                        setRecentScans(prev => [{ name: student.name, time: timeStr, status: (result.success ? 'success' : 'error') as 'success' | 'error' }, ...prev].slice(0, 5));
                     } else {
                         setScanFeedback({ type: 'success', message: `${student.name}さんの情報を読み込みました` });
+                        setRecentScans(prev => [{ name: student.name, time: timeStr, status: 'success' as const }, ...prev].slice(0, 5));
                     }
 
                 } else {
@@ -115,6 +134,9 @@ const CameraScannerModal: React.FC<{
             ).then(() => {
                 const videoElement = document.getElementById(scannerId)?.querySelector('video');
                 if(videoElement) {
+                    // Mobile: Ensure video covers the square container properly
+                    videoElement.style.objectFit = 'cover';
+                    
                     try {
                         const track = (videoElement.srcObject as MediaStream)?.getVideoTracks()[0];
                         if (track && 'getCapabilities' in track) {
@@ -186,45 +208,64 @@ const CameraScannerModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-0 md:p-4" onClick={handleClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-0 md:p-4" onClick={handleClose}>
             <div 
-                className={`bg-white w-full h-full md:h-auto md:rounded-2xl shadow-xl flex flex-col overflow-hidden relative ${modalSizeClasses[settings.cameraViewSize]}`} 
+                className={`bg-slate-900 w-full h-full md:h-auto md:bg-white md:rounded-2xl shadow-xl flex flex-col overflow-hidden relative ${modalSizeClasses[settings.cameraViewSize]}`} 
                 onClick={e => e.stopPropagation()}
             >
-                <div className="p-4 border-b flex justify-between items-center bg-white z-10">
-                    <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-                    <button onClick={handleClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-800 transition-colors">
+                <div className="p-4 border-b border-slate-700 md:border-slate-100 flex justify-between items-center bg-slate-900 md:bg-white z-10 text-white md:text-slate-800 flex-shrink-0">
+                    <h2 className="text-lg font-bold">{title}</h2>
+                    <button onClick={handleClose} className="p-2 bg-slate-800 md:bg-slate-100 rounded-full text-slate-400 md:text-slate-500 hover:text-white md:hover:text-slate-800 transition-colors">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
                 
-                <div className="flex-grow flex flex-col justify-center bg-black relative overflow-hidden">
-                    <div id={scannerId} className={`w-full h-full object-cover ${settings.isCameraFlipped ? 'camera-flipped' : ''}`}></div>
+                <div className="flex-grow flex flex-col md:block bg-black relative overflow-hidden">
+                    {/* Camera Area - Square on mobile, covers on desktop */}
+                    <div className="w-full aspect-square md:aspect-auto md:h-96 bg-black relative mx-auto max-w-lg md:max-w-none">
+                        <div id={scannerId} className={`w-full h-full ${settings.isCameraFlipped ? 'camera-flipped' : ''}`}></div>
+                        
+                        {/* Overlay Controls */}
+                        <div className="absolute bottom-4 right-4 left-4 flex justify-end pointer-events-none">
+                             {zoomCapabilities && (
+                                <div className="flex items-center gap-3 bg-black/60 p-2 px-4 rounded-full backdrop-blur-sm pointer-events-auto">
+                                    <span className="text-[10px] font-bold text-white whitespace-nowrap">ZOOM</span>
+                                    <input
+                                        type="range"
+                                        min={zoomCapabilities.min}
+                                        max={zoomCapabilities.max}
+                                        step={zoomCapabilities.step}
+                                        value={currentZoom}
+                                        onChange={handleZoomChange}
+                                        className="w-24 h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     
-                    {/* オーバーレイUI */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
-                        {scanFeedback && (
-                            <div className={`flex items-center gap-3 p-3 mb-4 rounded-xl backdrop-blur-md border ${scanFeedback.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-50' : 'bg-red-500/20 border-red-500/50 text-red-50'}`}>
-                                {scanFeedback.type === 'success' ? <CheckCircleIcon className="w-6 h-6 flex-shrink-0"/> : <ExclamationTriangleIcon className="w-6 h-6 flex-shrink-0"/>}
-                                <span className="font-bold text-sm shadow-sm">{scanFeedback.message}</span>
-                            </div>
-                        )}
+                    {/* Feedback & History Area - Visible below camera on mobile */}
+                    <div className="flex-grow bg-slate-900 p-4 overflow-y-auto border-t border-slate-800 md:absolute md:bottom-0 md:left-0 md:right-0 md:bg-gradient-to-t md:from-black/90 md:to-transparent md:border-none md:pointer-events-none">
+                        <div className="md:pointer-events-auto max-w-lg mx-auto">
+                            {scanFeedback && (
+                                <div className={`flex items-center gap-3 p-4 mb-4 rounded-xl backdrop-blur-md border shadow-lg ${scanFeedback.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-50' : 'bg-red-500/20 border-red-500/50 text-red-50'}`}>
+                                    {scanFeedback.type === 'success' ? <CheckCircleIcon className="w-6 h-6 flex-shrink-0 text-emerald-400"/> : <ExclamationTriangleIcon className="w-6 h-6 flex-shrink-0 text-red-400"/>}
+                                    <span className="font-bold text-base">{scanFeedback.message}</span>
+                                </div>
+                            )}
 
-                        {zoomCapabilities && (
-                            <div className="flex items-center gap-3 bg-black/40 p-3 rounded-xl backdrop-blur-sm">
-                                <span className="text-xs font-bold whitespace-nowrap">ズーム</span>
-                                <input
-                                    type="range"
-                                    min={zoomCapabilities.min}
-                                    max={zoomCapabilities.max}
-                                    step={zoomCapabilities.step}
-                                    value={currentZoom}
-                                    onChange={handleZoomChange}
-                                    className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white"
-                                />
-                                <span className="text-xs font-mono w-8 text-right">{currentZoom.toFixed(1)}x</span>
-                            </div>
-                        )}
+                            {recentScans.length > 0 && (
+                                <div className="space-y-2 md:hidden">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">最近の履歴</p>
+                                    {recentScans.map((scan, i) => (
+                                        <div key={i} className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                            <span className={`font-bold ${scan.status === 'success' ? 'text-white' : 'text-red-300'}`}>{scan.name}</span>
+                                            <span className="text-xs font-mono text-slate-500">{scan.time}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
