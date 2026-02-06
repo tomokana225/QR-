@@ -13,6 +13,13 @@ import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6
 import { initFirebase, saveToCloud, loadFromCloud, getFirebaseAuth } from './utils/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
+// Declare process.env for TypeScript
+declare const process: {
+  env: {
+    [key: string]: string | undefined;
+  }
+};
+
 const generateRandomCode = (length = 8) => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
@@ -45,6 +52,16 @@ const App: React.FC = () => {
     // モバイル用メニューの開閉状態
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+    // デフォルトのFirebase設定（環境変数から読み込み）
+    const defaultFirebaseConfig: FirebaseConfig = {
+        apiKey: process.env.FIREBASE_API_KEY || '',
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
+        projectId: process.env.FIREBASE_PROJECT_ID || '',
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
+        appId: process.env.FIREBASE_APP_ID || ''
+    };
+
     const [settings, setSettings] = useState<AppSettings>({ 
         volume: 1, 
         isCameraFlipped: false, 
@@ -56,9 +73,7 @@ const App: React.FC = () => {
         cameraViewSize: 'medium',
         cameraZoom: 1,
         scanCooldown: 1000,
-        firebaseConfig: {
-            apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
-        },
+        firebaseConfig: defaultFirebaseConfig,
         syncApiKey: '',
         syncId: '',
         lastSyncTimestamp: null,
@@ -105,7 +120,16 @@ const App: React.FC = () => {
             const savedSettings = localStorage.getItem('appSettings');
             if (savedSettings) {
                 const parsedSettings = JSON.parse(savedSettings);
-                setSettings(prev => ({...prev, ...parsedSettings}));
+                
+                // localStorageの設定を反映するが、Firebase設定が空の場合は環境変数を優先する
+                const mergedSettings = { ...settings, ...parsedSettings };
+                
+                if (!mergedSettings.firebaseConfig.apiKey && defaultFirebaseConfig.apiKey) {
+                    mergedSettings.firebaseConfig = defaultFirebaseConfig;
+                }
+
+                setSettings(mergedSettings);
+
                 if (parsedSettings.lastSyncTimestamp) setSyncStatus(`最終同期: ${new Date(parsedSettings.lastSyncTimestamp).toLocaleString()}`);
             }
         } catch (error) { console.error(error); }
