@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+
+import React from 'react';
 import { AppSettings, FirebaseConfig } from '../types';
 import { DocumentArrowDownIcon, DocumentArrowUpIcon, CloudArrowUpIcon, CloudArrowDownIcon, SparklesIcon } from './Icons';
-import { signIn, signOut } from '../utils/firebase';
+import { signOut } from '../utils/firebase';
 import { User } from 'firebase/auth';
 
 const SettingsPage: React.FC<{
@@ -16,10 +17,6 @@ const SettingsPage: React.FC<{
     user: User | null;
 }> = ({ settings, onSettingsChange, onExportData, onImportData, onCloudUpload, onCloudDownload, syncStatus, onLoadMockData, user }) => {
     
-    const [loginEmail, setLoginEmail] = useState('');
-    const [loginPass, setLoginPass] = useState('');
-    const [isLoggingIn, setIsLoggingIn] = useState(false);
-
     const handleCustomSoundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -41,24 +38,10 @@ const SettingsPage: React.FC<{
         });
     };
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoggingIn(true);
-        try {
-            await signIn(loginEmail, loginPass);
-            alert('ログインしました');
-            setLoginPass('');
-        } catch (error: any) {
-            alert('ログイン失敗: ' + error.message);
-        } finally {
-            setIsLoggingIn(false);
-        }
-    };
-
     const handleLogout = async () => {
         try {
             await signOut();
-            alert('ログアウトしました');
+            // App.tsxのAuthリスナーが状態変更を検知してログイン画面へ遷移します
         } catch (error: any) {
             alert('ログアウト失敗: ' + error.message);
         }
@@ -157,17 +140,7 @@ const SettingsPage: React.FC<{
 
                     {/* 認証・操作エリア */}
                     <div className="space-y-6 border-l border-slate-100 pl-0 lg:pl-8 pt-6 lg:pt-0">
-                         {!user ? (
-                            <form onSubmit={handleLogin} className="space-y-4 bg-slate-50 p-4 rounded-xl">
-                                <h4 className="text-sm font-bold text-slate-700">ログイン</h4>
-                                <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="メールアドレス" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm" required/>
-                                <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} placeholder="パスワード" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm" required/>
-                                <button type="submit" disabled={isLoggingIn} className="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50">
-                                    {isLoggingIn ? '処理中...' : 'ログイン'}
-                                </button>
-                                <p className="text-[10px] text-slate-400 text-center">※ユーザー登録はFirebaseコンソールで行ってください</p>
-                            </form>
-                        ) : (
+                         {user ? (
                             <div className="space-y-4">
                                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                                     <p className="text-xs text-emerald-600 font-bold mb-1">ログイン中</p>
@@ -177,22 +150,25 @@ const SettingsPage: React.FC<{
                                 
                                 <div className="flex gap-2">
                                     <button onClick={onCloudUpload} className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-700 shadow-lg shadow-slate-200">
-                                        <CloudArrowUpIcon className="w-4 h-4" /> アップロード
+                                        <CloudArrowUpIcon className="w-4 h-4" /> 強制アップロード
                                     </button>
                                     <button onClick={onCloudDownload} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-500 shadow-lg shadow-indigo-200">
-                                        <CloudArrowDownIcon className="w-4 h-4" /> ダウンロード
+                                        <CloudArrowDownIcon className="w-4 h-4" /> 強制ダウンロード
                                     </button>
                                 </div>
                                 <p className="text-[10px] text-slate-400 text-center mt-2">
-                                    ※「アップロード」は現在のデータでクラウドを上書きします。<br/>
-                                    ※「ダウンロード」はクラウドのデータで現在を上書きします。
+                                    ※通常は自動的に同期されます。<br/>手動操作はデータの整合性が取れない場合にのみ使用してください。
                                 </p>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center h-full">
+                                <p className="text-sm text-slate-400">設定を変更するにはログインが必要です</p>
                             </div>
                         )}
                     </div>
                 </div>
                  <div className="mt-6 pt-4 border-t border-slate-50 flex items-center gap-2 justify-end">
-                    <div className={`w-2 h-2 rounded-full ${syncStatus.includes('エラー') ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${syncStatus.includes('エラー') || syncStatus.includes('未') ? 'bg-amber-500' : 'bg-green-500'}`}></div>
                     <span className="text-xs text-slate-400 font-medium">{syncStatus}</span>
                 </div>
             </div>

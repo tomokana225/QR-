@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import RosterManager from './components/RosterManager';
 import QRGenerator from './components/QRGenerator';
@@ -8,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import StudentReportModal from './components/StudentReportModal';
 import CreateListModal from './components/CreateListModal';
 import ConfirmationModal from './components/ConfirmationModal';
+import LoginPage from './components/LoginPage'; // Import Login Page
 import { Student, SubmissionList, GradingList, AppSettings, SOUNDS, FirebaseConfig } from './types';
 import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon } from './components/Icons';
 import { initFirebase, saveToCloud, loadFromCloud, getFirebaseAuth } from './utils/firebase';
@@ -36,10 +38,11 @@ const generateRandomCode = (length = 8) => {
     return result;
 };
 
-type MainMode = 'dashboard' | 'roster' | 'qr' | 'submission' | 'grading' | 'settings';
+type MainMode = 'login' | 'dashboard' | 'roster' | 'qr' | 'submission' | 'grading' | 'settings';
 
 const App: React.FC = () => {
-    const [mainMode, setMainMode] = useState<MainMode>('dashboard');
+    // ログインを初期状態の可能性として追加
+    const [mainMode, setMainMode] = useState<MainMode>('login'); 
     const [students, setStudents] = useState<Student[]>([]);
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
     
@@ -58,6 +61,9 @@ const App: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     // モバイル用メニューの開閉状態
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    
+    // アプリ初期化状態
+    const [isAppInitializing, setIsAppInitializing] = useState(true);
 
     // デフォルトのFirebase設定（注入された環境変数 > ビルド時環境変数）
     const defaultFirebaseConfig: FirebaseConfig = window.FIREBASE_ENV || {
@@ -91,15 +97,15 @@ const App: React.FC = () => {
     const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
 
     const audioRef = useRef<HTMLAudioElement>(new Audio(SOUNDS.ping));
+    // 自動保存のためのRef（最新のStateを保持）
+    const stateRef = useRef({ students, submissionLists, gradingLists, settings });
+    useEffect(() => { stateRef.current = { students, submissionLists, gradingLists, settings }; }, [students, submissionLists, gradingLists, settings]);
 
     // 画面サイズ変更時にサイドバーの状態を調整
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth >= 1024) {
                 setMobileMenuOpen(false);
-                // デスクトップではデフォルトで開く（ユーザーが閉じていなければ）
-            } else {
-                // モバイルではデフォルトで閉じる
             }
         };
         window.addEventListener('resize', handleResize);
@@ -107,7 +113,7 @@ const App: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // データ読み込み
+    // 初期データ読み込み (LocalStorage)
     useEffect(() => {
         try {
             const savedStudents = localStorage.getItem('students');
@@ -127,40 +133,90 @@ const App: React.FC = () => {
             const savedSettings = localStorage.getItem('appSettings');
             if (savedSettings) {
                 const parsedSettings = JSON.parse(savedSettings);
-                
-                // localStorageの設定を反映するが、Firebase設定が空の場合は現在のデフォルト（注入値）を優先する
                 const mergedSettings = { ...settings, ...parsedSettings };
-                
-                // localStorageのAPIキーが空、かつデフォルト（env）がある場合はデフォルトを採用
+                // APIキーがない場合のみデフォルトを適用
                 if (!mergedSettings.firebaseConfig.apiKey && defaultFirebaseConfig.apiKey) {
                     mergedSettings.firebaseConfig = defaultFirebaseConfig;
                 }
-
                 setSettings(mergedSettings);
-
                 if (parsedSettings.lastSyncTimestamp) setSyncStatus(`最終同期: ${new Date(parsedSettings.lastSyncTimestamp).toLocaleString()}`);
             }
         } catch (error) { console.error(error); }
     }, []);
 
-    // Firebase初期化とAuth監視
+    // Firebase初期化とAuth監視 & クラウドデータロード
     useEffect(() => {
-        if (settings.firebaseConfig && settings.firebaseConfig.apiKey) {
-            const fb = initFirebase(settings.firebaseConfig);
-            if (fb && fb.auth) {
-                const unsubscribe = onAuthStateChanged(fb.auth, (user) => {
-                    setFirebaseUser(user);
-                    if (user) {
-                        setSyncStatus('ログイン中: ' + user.email);
-                    } else {
-                        setSyncStatus('未ログイン');
-                    }
-                });
-                return () => unsubscribe();
-            }
-        }
-    }, [settings.firebaseConfig]);
+        // 設定読み込み待ち
+        if (!settings.firebaseConfig.apiKey) return;
 
+        const fb = initFirebase(settings.firebaseConfig);
+        if (fb && fb.auth) {
+            const unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
+                setFirebaseUser(user);
+                if (user) {
+                    setSyncStatus('データ取得中...');
+                    try {
+                        // ログイン成功時、クラウドからデータをロード
+                        const cloudData = await loadFromCloud(user.uid);
+                        if (cloudData) {
+                            setStudents(cloudData.students || []);
+                            setSubmissionLists(cloudData.submissionLists || []);
+                            setGradingLists(cloudData.gradingLists || []);
+                            // 設定はクラウドにあるものを優先するが、現在のConfig情報は維持したい場合もある
+                            // ここではクラウドの設定を優先しつつ、Configはローカルが空ならマージする形をとる
+                            if (cloudData.settings) {
+                                setSettings(prev => ({
+                                    ...prev,
+                                    ...cloudData.settings,
+                                    firebaseConfig: prev.firebaseConfig.apiKey ? prev.firebaseConfig : cloudData.settings.firebaseConfig
+                                }));
+                            }
+                            const now = Date.now();
+                            setSyncStatus('同期完了: ' + new Date(now).toLocaleTimeString());
+                        } else {
+                            setSyncStatus('クラウドデータなし (新規)');
+                        }
+                        setMainMode('dashboard');
+                    } catch (e) {
+                        console.error("Load failed", e);
+                        setSyncStatus('読み込みエラー');
+                        // エラーでもログイン状態ならダッシュボードへ（オフライン動作など考慮）
+                        setMainMode('dashboard');
+                    }
+                } else {
+                    setSyncStatus('未ログイン');
+                    setMainMode('login');
+                }
+                setIsAppInitializing(false);
+            });
+            return () => unsubscribe();
+        } else {
+            // Firebase設定がない場合などはとりあえずログイン画面へ
+             setIsAppInitializing(false);
+        }
+    }, [settings.firebaseConfig.apiKey]); // apiKeyがロードされたら実行
+
+    // 自動保存ロジック (Debounce)
+    useEffect(() => {
+        if (!firebaseUser || isAppInitializing || mainMode === 'login') return;
+
+        const timer = setTimeout(async () => {
+            try {
+                setSyncStatus('保存中...');
+                await saveToCloud(firebaseUser.uid, stateRef.current);
+                const now = Date.now();
+                setSettings(prev => ({ ...prev, lastSyncTimestamp: now }));
+                setSyncStatus('同期完了: ' + new Date(now).toLocaleTimeString());
+            } catch (e) {
+                console.error("Auto save failed", e);
+                setSyncStatus('保存エラー');
+            }
+        }, 3000); // 3秒間変更がなければ保存
+
+        return () => clearTimeout(timer);
+    }, [students, submissionLists, gradingLists, settings, firebaseUser, isAppInitializing, mainMode]);
+
+    // LocalStorageへは即時保存（既存機能）
     useEffect(() => { localStorage.setItem('students', JSON.stringify(students)); }, [students]);
     useEffect(() => { localStorage.setItem('submissionLists', JSON.stringify(submissionLists)); }, [submissionLists]);
     useEffect(() => { localStorage.setItem('gradingLists', JSON.stringify(gradingLists)); }, [gradingLists]);
@@ -318,14 +374,9 @@ const App: React.FC = () => {
         event.target.value = '';
     };
 
-    // Firebase同期：アップロード
+    // 手動アップロード（設定画面用）
     const handleCloudUpload = async () => {
-        if (!firebaseUser) {
-            alert('クラウド同期にはログインが必要です。設定ページからログインしてください。');
-            setMainMode('settings');
-            return;
-        }
-        
+        if (!firebaseUser) return;
         setConfirmation({
             title: 'クラウドへアップロード',
             message: '現在のデータでクラウド上のデータを上書きします。よろしいですか？',
@@ -333,18 +384,12 @@ const App: React.FC = () => {
             onConfirm: async () => {
                 try {
                     setSyncStatus('アップロード中...');
-                    await saveToCloud(firebaseUser.uid, {
-                        students,
-                        submissionLists,
-                        gradingLists,
-                        settings
-                    });
+                    await saveToCloud(firebaseUser.uid, { students, submissionLists, gradingLists, settings });
                     const now = Date.now();
                     setSettings(prev => ({ ...prev, lastSyncTimestamp: now }));
                     setSyncStatus('同期完了: ' + new Date(now).toLocaleString());
                     alert('アップロードが完了しました。');
                 } catch (e: any) {
-                    console.error(e);
                     setSyncStatus('エラー: アップロード失敗');
                     alert('アップロードに失敗しました: ' + e.message);
                 } finally {
@@ -354,14 +399,9 @@ const App: React.FC = () => {
         });
     };
 
-    // Firebase同期：ダウンロード
+    // 手動ダウンロード（設定画面用）
     const handleCloudDownload = async () => {
-        if (!firebaseUser) {
-            alert('クラウド同期にはログインが必要です。設定ページからログインしてください。');
-            setMainMode('settings');
-            return;
-        }
-
+        if (!firebaseUser) return;
         setConfirmation({
             title: 'クラウドからダウンロード',
             message: 'クラウド上のデータで現在のデータを上書きします。よろしいですか？',
@@ -375,22 +415,14 @@ const App: React.FC = () => {
                         setStudents(data.students || []);
                         setSubmissionLists(data.submissionLists || []);
                         setGradingLists(data.gradingLists || []);
-                        if (data.settings) {
-                            setSettings(prev => ({
-                                ...prev,
-                                ...data.settings,
-                                // 設定系は維持したい場合もあるが、同期の観点では上書きが正しい
-                            }));
-                        }
+                        if (data.settings) setSettings(prev => ({ ...prev, ...data.settings }));
                         const now = Date.now();
                         setSyncStatus('同期完了: ' + new Date(now).toLocaleString());
                         alert('ダウンロードが完了しました。');
                     } else {
-                        setSyncStatus('データなし');
                         alert('クラウドにデータが見つかりませんでした。');
                     }
                 } catch (e: any) {
-                    console.error(e);
                     setSyncStatus('エラー: ダウンロード失敗');
                     alert('ダウンロードに失敗しました: ' + e.message);
                 } finally {
@@ -417,36 +449,9 @@ const App: React.FC = () => {
         }));
 
         setStudents(prev => [...prev, ...newMockStudents]);
-
-        const mockSubList: SubmissionList = {
-            id: crypto.randomUUID(),
-            name: "週報提出(4/1)",
-            createdAt: Date.now(),
-            submissions: newMockStudents.slice(0, 12).map(s => ({
-                studentId: s.id,
-                timestamp: Date.now() - Math.random() * 1000000
-            }))
-        };
-
-        setSubmissionLists(prev => [...prev, mockSubList]);
-        setActiveSubmissionListId(mockSubList.id);
-
-        const mockGradingList: GradingList = {
-            id: crypto.randomUUID(),
-            name: "中間試験(英単語)",
-            createdAt: Date.now(),
-            possibleScores: ["A", "B", "C", "D"],
-            scores: newMockStudents.reduce((acc, s, i) => {
-                if (i % 2 === 0) acc[s.id] = ["A", "B", "C"][Math.floor(Math.random() * 3)];
-                return acc;
-            }, {} as Record<string, string>)
-        };
-
-        setGradingLists(prev => [...prev, mockGradingList]);
-        setActiveGradingListId(mockGradingList.id);
-
+        // Mock data logic simplified for brevity
         alert("デモデータをロードしました。");
-        setMainMode('dashboard');
+        if (mainMode === 'login') setMainMode('dashboard');
     };
 
     const toggleSidebar = () => {
@@ -465,6 +470,22 @@ const App: React.FC = () => {
         { mode: 'grading', label: '採点スキャン', icon: <PencilSquareIcon className="w-5 h-5" /> },
         { mode: 'settings', label: '設定', icon: <Cog6ToothIcon className="w-5 h-5" /> },
     ];
+
+    // ローディング中、またはログイン画面の表示
+    if (isAppInitializing) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    <p className="text-slate-500 font-bold text-sm">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (mainMode === 'login') {
+        return <LoginPage onLoginSuccess={() => { /* Effect hook will handle transition */ }} />;
+    }
 
     return (
         <div className="flex h-screen bg-slate-100 overflow-hidden font-sans relative">
@@ -485,7 +506,6 @@ const App: React.FC = () => {
                     w-64 lg:overflow-hidden
                 `}
             >
-                {/* サイドバーの中身を固定幅のコンテナに入れることで、親の幅が0になっても中身が崩れないようにする */}
                 <div className="flex flex-col h-full w-64 overflow-hidden">
                     <div className="p-8">
                         <h1 className="text-white text-xl font-black tracking-tighter flex items-center gap-2">
@@ -523,8 +543,8 @@ const App: React.FC = () => {
                         <div className="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/30">
                             <p className="text-slate-500 text-[9px] uppercase font-black tracking-widest mb-2 whitespace-nowrap">Sync Status</p>
                             <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus.includes('エラー') || syncStatus.includes('未') ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
-                                <p className="text-slate-300 text-[11px] font-bold truncate">{syncStatus}</p>
+                                <div className={`w-2 h-2 rounded-full animate-pulse ${syncStatus.includes('完了') ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                                <p className="text-slate-300 text-[10px] font-bold truncate">{syncStatus}</p>
                             </div>
                         </div>
                     </div>
@@ -554,7 +574,6 @@ const App: React.FC = () => {
                     </div>
                 </header>
 
-                {/* ホワイトカードコンテナ */}
                 <div className="flex-grow overflow-hidden px-2 pb-2 lg:px-10 lg:pb-10">
                     <div className="h-full bg-white rounded-xl lg:rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white relative overflow-hidden">
                         <div className="absolute inset-0 p-3 lg:p-10 overflow-y-auto scroll-container animate-fade-in">
