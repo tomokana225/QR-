@@ -1,14 +1,15 @@
 
 import React, { useState } from 'react';
 import { signIn } from '../utils/firebase';
-import { QrCodeIcon, SparklesIcon } from './Icons';
+import { QrCodeIcon, SparklesIcon, ExclamationTriangleIcon } from './Icons';
 
 interface LoginPageProps {
     onLoginSuccess: () => void;
     onGoToSettings: () => void;
+    isFirebaseReady?: boolean;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings, isFirebaseReady = true }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +19,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings })
         e.preventDefault();
         setIsLoading(true);
         setError(null);
+
+        if (!isFirebaseReady) {
+            setError('Firebase接続設定が見つかりません。システム設定からAPIキーを登録してください。');
+            setIsLoading(false);
+            return;
+        }
 
         try {
             await signIn(email, password);
@@ -53,6 +60,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings })
 
             <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="bg-white py-10 px-6 shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-3xl sm:px-12 border border-slate-100">
+                    
+                    {!isFirebaseReady && (
+                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                            <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-sm text-amber-800">
+                                <p className="font-bold">初期設定が必要です</p>
+                                <p className="mt-1 text-xs leading-relaxed">
+                                    Cloudflare環境変数が読み込まれていないか、APIキーが未設定です。以下の「システム設定」から手動で設定を行ってください。
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         <div>
                             <label htmlFor="email" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -69,6 +89,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings })
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors bg-slate-50"
                                     placeholder="user@example.com"
+                                    disabled={!isFirebaseReady}
                                 />
                             </div>
                         </div>
@@ -88,6 +109,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings })
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors bg-slate-50"
                                     placeholder="••••••••"
+                                    disabled={!isFirebaseReady}
                                 />
                             </div>
                         </div>
@@ -108,7 +130,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings })
                         <div>
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={isLoading || !isFirebaseReady}
                                 className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent rounded-xl shadow-xl shadow-indigo-500/20 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0"
                             >
                                 {isLoading ? (

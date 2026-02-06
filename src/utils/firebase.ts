@@ -1,3 +1,4 @@
+
 import { initializeApp, FirebaseApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
 import { getFirestore, Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
@@ -9,8 +10,8 @@ let db: Firestore | undefined;
 
 // Firebase初期化
 export const initFirebase = (config: FirebaseConfig) => {
-    if (!config.apiKey || !config.projectId) {
-        console.warn('Firebase config is missing');
+    if (!config || !config.apiKey || !config.projectId) {
+        console.warn('Firebase config is missing or incomplete:', config);
         return null;
     }
 

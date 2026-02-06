@@ -1,3 +1,4 @@
+
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
   FIREBASE_API_KEY: string;
@@ -30,12 +31,28 @@ export default {
     }
 
     // Serve Static Assets via Cloudflare Pages/Workers Assets binding
-    // If env.ASSETS is not available (e.g. local dev without binding), fallback to text
     if (!env.ASSETS) {
       return new Response("Environment ASSETS binding not found.", { status: 500 });
     }
 
-    let response = await env.ASSETS.fetch(request);
+    // IMPORTANT: For HTML requests, we must bypass browser caching (304 Not Modified) 
+    // to ensure we always get the full response body to inject environment variables.
+    let assetRequest = request;
+    const isHtmlRequest = url.pathname === '/' || url.pathname.endsWith('.html') || !url.pathname.includes('.');
+    
+    if (isHtmlRequest) {
+        const newHeaders = new Headers(request.headers);
+        // Strip conditional headers to force a 200 OK response from the asset binding
+        newHeaders.delete('If-None-Match');
+        newHeaders.delete('If-Modified-Since');
+        assetRequest = new Request(request.url, {
+            method: request.method,
+            headers: newHeaders,
+            body: request.body
+        });
+    }
+
+    let response = await env.ASSETS.fetch(assetRequest);
 
     // If the response is HTML, inject the environment variables
     const contentType = response.headers.get("Content-Type");
@@ -51,9 +68,18 @@ export default {
             appId: env.FIREBASE_APP_ID || ""
         };
 
-        // Inject config as a global variable before the closing head tag
+        // Inject config as a global variable
         const injection = `<script>window.FIREBASE_ENV = ${JSON.stringify(firebaseConfig)};</script>`;
-        html = html.replace('</head>', `${injection}</head>`);
+        
+        // Robust injection: try replacing closing head, otherwise closing body
+        if (html.includes('</head>')) {
+            html = html.replace('</head>', `${injection}</head>`);
+        } else if (html.includes('</body>')) {
+            html = html.replace('</body>', `${injection}</body>`);
+        } else {
+            // Last resort: append to end
+            html += injection;
+        }
 
         return new Response(html, {
             status: 200,

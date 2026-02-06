@@ -64,6 +64,7 @@ const App: React.FC = () => {
     
     // アプリ初期化状態
     const [isAppInitializing, setIsAppInitializing] = useState(true);
+    const [isFirebaseReady, setIsFirebaseReady] = useState(false);
 
     // デフォルトのFirebase設定（注入された環境変数 > ビルド時環境変数）
     const defaultFirebaseConfig: FirebaseConfig = window.FIREBASE_ENV || {
@@ -154,12 +155,14 @@ const App: React.FC = () => {
                 console.warn("Firebase initialization timed out.");
                 setSyncStatus('接続タイムアウト');
                 setIsAppInitializing(false);
+                setIsFirebaseReady(false);
             }
         }, 5000);
 
         const fb = initFirebase(settings.firebaseConfig);
         
         if (fb && fb.auth) {
+            setIsFirebaseReady(true);
             unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
                 clearTimeout(timeoutId); // 接続成功したらタイムアウト解除
                 setFirebaseUser(user);
@@ -201,9 +204,9 @@ const App: React.FC = () => {
         } else {
             // Firebase設定がない場合などはとりあえずログイン画面へ
             clearTimeout(timeoutId);
-            console.warn("Firebase configuration is missing or invalid.");
             setSyncStatus('APIキー未設定');
             setIsAppInitializing(false);
+            setIsFirebaseReady(false);
         }
 
         return () => {
@@ -504,6 +507,7 @@ const App: React.FC = () => {
             <LoginPage 
                 onLoginSuccess={() => { /* Effect hook will handle transition */ }} 
                 onGoToSettings={() => setMainMode('settings')}
+                isFirebaseReady={isFirebaseReady}
             />
         );
     }
