@@ -369,6 +369,25 @@ const App: React.FC = () => {
         if (activeSubmissionListId === listId) setActiveSubmissionListId(remaining.length > 0 ? [...remaining].sort((a,b) => b.createdAt - a.createdAt)[0].id : null);
     };
 
+    const handleCreateGradingList = (name: string) => {
+        const newList: GradingList = { 
+            id: crypto.randomUUID(), 
+            name: name.trim(), 
+            createdAt: Date.now(), 
+            possibleScores: ["A", "B", "C"], // Default options
+            scores: {} 
+        };
+        setGradingLists(prev => [...prev, newList]);
+        setActiveGradingListId(newList.id);
+        setIsCreateGradingListModalOpen(false);
+    };
+
+    const handleDeleteGradingList = (listId: string) => {
+        const remaining = gradingLists.filter(list => list.id !== listId);
+        setGradingLists(remaining);
+        if (activeGradingListId === listId) setActiveGradingListId(remaining.length > 0 ? [...remaining].sort((a,b) => b.createdAt - a.createdAt)[0].id : null);
+    };
+
     const handleSetScore = useCallback((listId: string, studentId: string, score: string) => {
         setGradingLists(prevLists => prevLists.map(list => {
             if (list.id === listId) {
@@ -380,6 +399,10 @@ const App: React.FC = () => {
             return list;
         }));
     }, []);
+
+    const handleUpdateListDetails = (listId: string, updates: Partial<GradingList>) => {
+        setGradingLists(prev => prev.map(list => list.id === listId ? { ...list, ...updates } : list));
+    };
 
     const handleExportData = () => {
         const data = {
@@ -660,7 +683,7 @@ const App: React.FC = () => {
                             {mainMode === 'roster' && <RosterManager students={students} selectedStudentIds={selectedStudentIds} setSelectedStudentIds={setSelectedStudentIds} onAddStudent={handleAddStudent} onUpdateStudent={handleUpdateStudent} onBulkAddStudents={handleBulkAddStudents} onDeleteStudent={handleDeleteStudent} onDeleteSelectedStudents={handleDeleteSelectedStudents} />}
                             {mainMode === 'qr' && <QRGenerator students={students} />}
                             {mainMode === 'submission' && <SubmissionChecker students={students} submissionLists={submissionLists} activeSubmissionListId={activeSubmissionListId} onSetSubmission={handleSetSubmission} onResetCurrentList={() => {}} onCreateSubmissionList={() => setIsCreateSubmissionListModalOpen(true)} onDeleteSubmissionList={handleDeleteSubmissionList} onSetActiveSubmissionListId={setActiveSubmissionListId} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef} setConfirmation={setConfirmation} />}
-                            {mainMode === 'grading' && <GradingScanner students={students} gradingLists={gradingLists} activeGradingListId={activeGradingListId} onSetActiveGradingListId={setActiveGradingListId} onCreateGradingList={() => setIsCreateGradingListModalOpen(true)} onDeleteGradingList={() => {}} onSetScore={handleSetScore} onUpdateListDetails={() => {}} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef}/>}
+                            {mainMode === 'grading' && <GradingScanner students={students} gradingLists={gradingLists} activeGradingListId={activeGradingListId} onSetActiveGradingListId={setActiveGradingListId} onCreateGradingList={() => setIsCreateGradingListModalOpen(true)} onDeleteGradingList={handleDeleteGradingList} onSetScore={handleSetScore} onUpdateListDetails={handleUpdateListDetails} settings={settings} onSettingsChange={handleSettingsChange} playSuccessSound={playSuccessSound} audioRef={audioRef}/>}
                             {mainMode === 'settings' && <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onExportData={handleExportData} onImportData={handleImportData} onCloudUpload={handleCloudUpload} onCloudDownload={handleCloudDownload} syncStatus={syncStatus} onLoadMockData={handleLoadMockData} user={firebaseUser} />}
                         </div>
                     </div>
@@ -668,6 +691,7 @@ const App: React.FC = () => {
             </main>
 
             <CreateListModal isOpen={isCreateSubmissionListModalOpen} onClose={() => setIsCreateSubmissionListModalOpen(false)} onCreate={handleCreateSubmissionList} title="提出リスト作成" defaultNamePrefix="提出" />
+            <CreateListModal isOpen={isCreateGradingListModalOpen} onClose={() => setIsCreateGradingListModalOpen(false)} onCreate={handleCreateGradingList} title="採点リスト作成" defaultNamePrefix="採点" />
             <ConfirmationModal isOpen={!!confirmation} onClose={() => setConfirmation(null)} onConfirm={confirmation?.onConfirm || (() => {})} title={confirmation?.title || ''} message={confirmation?.message || ''} confirmButtonText={confirmation?.confirmButtonText} cancelButtonText={confirmation?.cancelButtonText} confirmButtonClass={confirmation?.confirmButtonClass} />
             <StudentReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} student={selectedStudentForReport} submissionLists={submissionLists} gradingLists={gradingLists} />
         </div>
