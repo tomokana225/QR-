@@ -1,4 +1,4 @@
-name = "qr-student-manager"
+name = "qr-kanri"
 compatibility_date = "2024-04-03"
 main = "worker.ts"
 
