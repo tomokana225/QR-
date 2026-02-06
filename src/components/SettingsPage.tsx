@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppSettings, FirebaseConfig } from '../types';
-import { DocumentArrowDownIcon, DocumentArrowUpIcon, CloudArrowUpIcon, CloudArrowDownIcon, SparklesIcon } from './Icons';
+import { DocumentArrowDownIcon, DocumentArrowUpIcon, CloudArrowUpIcon, CloudArrowDownIcon, SparklesIcon, CheckCircleIcon, ExclamationTriangleIcon, Cog6ToothIcon } from './Icons';
 import { signOut } from '../utils/firebase';
 import { User } from 'firebase/auth';
 
@@ -17,6 +17,8 @@ const SettingsPage: React.FC<{
     user: User | null;
 }> = ({ settings, onSettingsChange, onExportData, onImportData, onCloudUpload, onCloudDownload, syncStatus, onLoadMockData, user }) => {
     
+    const [showConfig, setShowConfig] = useState(false);
+
     const handleCustomSoundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -46,6 +48,8 @@ const SettingsPage: React.FC<{
             alert('ログアウト失敗: ' + error.message);
         }
     };
+
+    const hasConfig = !!settings.firebaseConfig?.apiKey;
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-12">
@@ -123,19 +127,70 @@ const SettingsPage: React.FC<{
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* 設定フォーム */}
+                    {/* 設定フォーム (セキュリティ対策済み) */}
                     <div className="space-y-4">
                         <p className="text-xs text-slate-500 font-medium">
-                            Firebaseプロジェクトの構成情報を入力してください。設定はブラウザに保存されます。
+                            Firebaseプロジェクトの設定情報です。環境変数から自動的に読み込まれます。
                         </p>
-                        <div className="grid grid-cols-1 gap-3">
-                            <input type="text" value={settings.firebaseConfig?.apiKey || ''} onChange={e => handleFirebaseConfigChange('apiKey', e.target.value)} placeholder="API Key" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
-                            <input type="text" value={settings.firebaseConfig?.authDomain || ''} onChange={e => handleFirebaseConfigChange('authDomain', e.target.value)} placeholder="Auth Domain" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
-                            <input type="text" value={settings.firebaseConfig?.projectId || ''} onChange={e => handleFirebaseConfigChange('projectId', e.target.value)} placeholder="Project ID" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
-                            <input type="text" value={settings.firebaseConfig?.storageBucket || ''} onChange={e => handleFirebaseConfigChange('storageBucket', e.target.value)} placeholder="Storage Bucket" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
-                            <input type="text" value={settings.firebaseConfig?.messagingSenderId || ''} onChange={e => handleFirebaseConfigChange('messagingSenderId', e.target.value)} placeholder="Messaging Sender ID" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
-                            <input type="text" value={settings.firebaseConfig?.appId || ''} onChange={e => handleFirebaseConfigChange('appId', e.target.value)} placeholder="App ID" className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
-                        </div>
+
+                        {!showConfig ? (
+                            <div className={`p-4 rounded-xl border flex items-center justify-between ${hasConfig ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}>
+                                <div className="flex items-center gap-3">
+                                    {hasConfig ? (
+                                        <CheckCircleIcon className="w-6 h-6 text-emerald-500" />
+                                    ) : (
+                                        <ExclamationTriangleIcon className="w-6 h-6 text-amber-500" />
+                                    )}
+                                    <div>
+                                        <p className={`text-sm font-bold ${hasConfig ? 'text-emerald-800' : 'text-slate-600'}`}>
+                                            {hasConfig ? "接続設定: 読み込み済み" : "接続設定: 未設定"}
+                                        </p>
+                                        {hasConfig && <p className="text-[10px] text-emerald-600">システム管理者により設定されています</p>}
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setShowConfig(true)}
+                                    className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                    <Cog6ToothIcon className="w-3 h-3" />
+                                    確認・編集
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="animate-fade-in bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
+                                    <h4 className="text-xs font-bold text-slate-600 uppercase">手動設定モード</h4>
+                                    <button onClick={() => setShowConfig(false)} className="text-xs text-slate-400 hover:text-slate-600">閉じる</button>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {/* API Keyはパスワード形式で表示 */}
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">API Key</label>
+                                        <input type="password" value={settings.firebaseConfig?.apiKey || ''} onChange={e => handleFirebaseConfigChange('apiKey', e.target.value)} placeholder="API Key" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Auth Domain</label>
+                                        <input type="text" value={settings.firebaseConfig?.authDomain || ''} onChange={e => handleFirebaseConfigChange('authDomain', e.target.value)} placeholder="Auth Domain" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Project ID</label>
+                                        <input type="text" value={settings.firebaseConfig?.projectId || ''} onChange={e => handleFirebaseConfigChange('projectId', e.target.value)} placeholder="Project ID" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Storage Bucket</label>
+                                        <input type="text" value={settings.firebaseConfig?.storageBucket || ''} onChange={e => handleFirebaseConfigChange('storageBucket', e.target.value)} placeholder="Storage Bucket" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Messaging Sender ID</label>
+                                        <input type="text" value={settings.firebaseConfig?.messagingSenderId || ''} onChange={e => handleFirebaseConfigChange('messagingSenderId', e.target.value)} placeholder="Messaging Sender ID" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">App ID</label>
+                                        <input type="text" value={settings.firebaseConfig?.appId || ''} onChange={e => handleFirebaseConfigChange('appId', e.target.value)} placeholder="App ID" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono"/>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* 認証・操作エリア */}

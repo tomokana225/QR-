@@ -11,8 +11,8 @@ import CreateListModal from './components/CreateListModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import LoginPage from './components/LoginPage'; // Import Login Page
 import { Student, SubmissionList, GradingList, AppSettings, SOUNDS, FirebaseConfig } from './types';
-import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon } from './components/Icons';
-import { initFirebase, saveToCloud, loadFromCloud, getFirebaseAuth } from './utils/firebase';
+import { ChartBarIcon, UsersIcon, QrCodeIcon, CameraIcon, PencilSquareIcon, Cog6ToothIcon, Bars3Icon, ArrowLeftStartOnRectangleIcon } from './components/Icons';
+import { initFirebase, saveToCloud, loadFromCloud, getFirebaseAuth, signOut } from './utils/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 // Declare process.env for TypeScript
@@ -290,6 +290,23 @@ const App: React.FC = () => {
     }, [settings.playSound, settings.soundEffect]);
 
     const handleSettingsChange = (newSettings: Partial<AppSettings>) => setSettings(prev => ({ ...prev, ...newSettings }));
+
+    const handleLogout = async () => {
+        setConfirmation({
+            title: 'ログアウト',
+            message: 'ログアウトしてもよろしいですか？',
+            confirmButtonText: 'ログアウト',
+            confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+            onConfirm: async () => {
+                try {
+                    await signOut();
+                    setConfirmation(null);
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                }
+            }
+        });
+    };
 
     const handleAddStudent = (studentData: { className: string; studentNumber: string; name: string; randomCode?: string }) => {
         const newStudent: Student = { 
@@ -594,7 +611,14 @@ const App: React.FC = () => {
                         ))}
                     </nav>
 
-                    <div className="p-6 mt-auto border-t border-slate-800/50">
+                    <div className="p-6 mt-auto border-t border-slate-800/50 space-y-4">
+                         <button 
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-5 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:bg-red-900/20 hover:text-red-400 group"
+                        >
+                            <ArrowLeftStartOnRectangleIcon className="w-5 h-5" />
+                            <span className="text-sm font-bold tracking-tight whitespace-nowrap">ログアウト</span>
+                        </button>
                         <div className="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/30">
                             <p className="text-slate-500 text-[9px] uppercase font-black tracking-widest mb-2 whitespace-nowrap">Sync Status</p>
                             <div className="flex items-center gap-2">
