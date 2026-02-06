@@ -1,12 +1,12 @@
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
-  FIREBASE_API_KEY: string;
-  FIREBASE_AUTH_DOMAIN: string;
-  FIREBASE_PROJECT_ID: string;
-  FIREBASE_STORAGE_BUCKET: string;
-  FIREBASE_MESSAGING_SENDER_ID: string;
-  FIREBASE_APP_ID: string;
+  FIREBASE_API_KEY?: string;
+  FIREBASE_AUTH_DOMAIN?: string;
+  FIREBASE_PROJECT_ID?: string;
+  FIREBASE_STORAGE_BUCKET?: string;
+  FIREBASE_MESSAGING_SENDER_ID?: string;
+  FIREBASE_APP_ID?: string;
 }
 
 export default {
@@ -30,19 +30,17 @@ export default {
       return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
     }
 
-    // Serve Static Assets via Cloudflare Pages/Workers Assets binding
+    // Serve Static Assets via Cloudflare Workers Assets binding
     if (!env.ASSETS) {
       return new Response("Environment ASSETS binding not found.", { status: 500 });
     }
 
-    // IMPORTANT: For HTML requests, we must bypass browser caching (304 Not Modified) 
-    // to ensure we always get the full response body to inject environment variables.
+    // For HTML requests, bypass cache to ensure environment variables are injected
     let assetRequest = request;
     const isHtmlRequest = url.pathname === '/' || url.pathname.endsWith('.html') || !url.pathname.includes('.');
     
     if (isHtmlRequest) {
         const newHeaders = new Headers(request.headers);
-        // Strip conditional headers to force a 200 OK response from the asset binding
         newHeaders.delete('If-None-Match');
         newHeaders.delete('If-Modified-Since');
         assetRequest = new Request(request.url, {
@@ -59,6 +57,7 @@ export default {
     if (response.status === 200 && contentType && contentType.includes("text/html")) {
         let html = await response.text();
         
+        // Retrieve variables from the `env` object provided by Cloudflare Runtime
         const firebaseConfig = {
             apiKey: env.FIREBASE_API_KEY || "",
             authDomain: env.FIREBASE_AUTH_DOMAIN || "",
@@ -68,22 +67,41 @@ export default {
             appId: env.FIREBASE_APP_ID || ""
         };
 
-        // Inject config as a global variable
-        const injection = `<script>window.FIREBASE_ENV = ${JSON.stringify(firebaseConfig)};</script>`;
+        // Create debug info to help user verify keys are present in the worker
+        // This will log to the browser console
+        const availableKeys = Object.keys(firebaseConfig).filter(k => !!firebaseConfig[k as keyof typeof firebaseConfig]);
+        const debugLog = `console.log("QR Manager: Loaded Config Keys:", ${JSON.stringify(availableKeys)});`;
+        if (availableKeys.length === 0) {
+            const envKeys = Object.keys(env).filter(k => k.startsWith('FIREBASE_'));
+            // If config is empty, log what raw keys are available on env for debugging
+            debugLog.concat(`console.warn("QR Manager: No config values found. Raw Env Keys available:", ${JSON.stringify(envKeys)});`);
+        }
+
+        const injection = `
+        <script>
+            ${debugLog}
+            window.FIREBASE_ENV = ${JSON.stringify(firebaseConfig)};
+        </script>
+        `;
         
-        // Robust injection: try replacing closing head, otherwise closing body
+        // Robust injection: try replacing closing head, otherwise closing body, or append
         if (html.includes('</head>')) {
             html = html.replace('</head>', `${injection}</head>`);
         } else if (html.includes('</body>')) {
             html = html.replace('</body>', `${injection}</body>`);
         } else {
-            // Last resort: append to end
             html += injection;
         }
 
+        const newHeaders = new Headers(response.headers);
+        // Force no-cache for the HTML to ensure fresh injection on reload
+        newHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        newHeaders.set('Pragma', 'no-cache');
+        newHeaders.set('Expires', '0');
+
         return new Response(html, {
             status: 200,
-            headers: response.headers
+            headers: newHeaders
         });
     }
 
