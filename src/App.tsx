@@ -20,6 +20,13 @@ declare const process: {
   }
 };
 
+// Declare window extension for injected config
+declare global {
+  interface Window {
+    FIREBASE_ENV?: FirebaseConfig;
+  }
+}
+
 const generateRandomCode = (length = 8) => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
@@ -52,8 +59,8 @@ const App: React.FC = () => {
     // モバイル用メニューの開閉状態
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    // デフォルトのFirebase設定（環境変数から読み込み）
-    const defaultFirebaseConfig: FirebaseConfig = {
+    // デフォルトのFirebase設定（注入された環境変数 > ビルド時環境変数）
+    const defaultFirebaseConfig: FirebaseConfig = window.FIREBASE_ENV || {
         apiKey: process.env.FIREBASE_API_KEY || '',
         authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
         projectId: process.env.FIREBASE_PROJECT_ID || '',
@@ -121,9 +128,10 @@ const App: React.FC = () => {
             if (savedSettings) {
                 const parsedSettings = JSON.parse(savedSettings);
                 
-                // localStorageの設定を反映するが、Firebase設定が空の場合は環境変数を優先する
+                // localStorageの設定を反映するが、Firebase設定が空の場合は現在のデフォルト（注入値）を優先する
                 const mergedSettings = { ...settings, ...parsedSettings };
                 
+                // localStorageのAPIキーが空、かつデフォルト（env）がある場合はデフォルトを採用
                 if (!mergedSettings.firebaseConfig.apiKey && defaultFirebaseConfig.apiKey) {
                     mergedSettings.firebaseConfig = defaultFirebaseConfig;
                 }
