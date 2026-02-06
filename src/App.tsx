@@ -146,9 +146,6 @@ const App: React.FC = () => {
 
     // Firebase初期化とAuth監視 & クラウドデータロード
     useEffect(() => {
-        // 設定読み込み待ち
-        if (!settings.firebaseConfig.apiKey) return;
-
         const fb = initFirebase(settings.firebaseConfig);
         if (fb && fb.auth) {
             const unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
@@ -192,7 +189,9 @@ const App: React.FC = () => {
             return () => unsubscribe();
         } else {
             // Firebase設定がない場合などはとりあえずログイン画面へ
-             setIsAppInitializing(false);
+            console.warn("Firebase configuration is missing or invalid.");
+            setSyncStatus('APIキー未設定');
+            setIsAppInitializing(false);
         }
     }, [settings.firebaseConfig.apiKey]); // apiKeyがロードされたら実行
 
@@ -484,7 +483,12 @@ const App: React.FC = () => {
     }
 
     if (mainMode === 'login') {
-        return <LoginPage onLoginSuccess={() => { /* Effect hook will handle transition */ }} />;
+        return (
+            <LoginPage 
+                onLoginSuccess={() => { /* Effect hook will handle transition */ }} 
+                onGoToSettings={() => setMainMode('settings')}
+            />
+        );
     }
 
     return (

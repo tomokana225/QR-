@@ -5,9 +5,10 @@ import { QrCodeIcon, SparklesIcon } from './Icons';
 
 interface LoginPageProps {
     onLoginSuccess: () => void;
+    onGoToSettings: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToSettings }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +24,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             onLoginSuccess();
         } catch (err: any) {
             console.error(err);
-            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+            if (err.message && err.message.includes("Firebase not initialized")) {
+                setError('システム設定エラー: APIキーが設定されていません。下のリンクから設定してください。');
+            } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
                 setError('メールアドレスまたはパスワードが間違っています。');
             } else if (err.code === 'auth/too-many-requests') {
                 setError('ログイン試行回数が多すぎます。しばらく待ってから再試行してください。');
@@ -122,6 +125,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                             </button>
                         </div>
                     </form>
+                    
+                    <div className="mt-6 text-center">
+                        <button onClick={onGoToSettings} className="text-xs text-slate-400 underline hover:text-indigo-500 transition-colors">
+                            システム設定（APIキー登録）
+                        </button>
+                    </div>
                 </div>
                 <p className="mt-8 text-center text-xs text-slate-400 font-medium">
                     &copy; 2024 QR Student Manager Pro
