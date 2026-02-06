@@ -1,7 +1,89 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Student, SubmissionList, AppSettings } from '../types';
-import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon, ChevronRightIcon, Cog6ToothIcon, ExclamationTriangleIcon } from './Icons';
+import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon, ChevronRightIcon, ChevronLeftIcon, Cog6ToothIcon, ExclamationTriangleIcon, CalendarIcon } from './Icons';
 import CameraScannerModal from './CameraScannerModal';
+
+const CalendarWidget: React.FC<{
+    currentDate: Date;
+    onDateSelect: (date: Date) => void;
+    submissionDates: Set<string>;
+}> = ({ currentDate, onDateSelect, submissionDates }) => {
+    const [viewDate, setViewDate] = useState(new Date(currentDate));
+
+    useEffect(() => {
+        setViewDate(new Date(currentDate));
+    }, [currentDate]);
+
+    const getDaysInMonth = (date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const days = new Date(year, month + 1, 0).getDate();
+        const firstDay = new Date(year, month, 1).getDay();
+        return { days, firstDay };
+    };
+
+    const { days, firstDay } = getDaysInMonth(viewDate);
+    const monthYear = viewDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+
+    const changeMonth = (delta: number) => {
+        setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1));
+    };
+
+    const isToday = (d: number) => {
+        const today = new Date();
+        return d === today.getDate() && viewDate.getMonth() === today.getMonth() && viewDate.getFullYear() === today.getFullYear();
+    };
+
+    const isSelected = (d: number) => {
+        return d === currentDate.getDate() && viewDate.getMonth() === currentDate.getMonth() && viewDate.getFullYear() === currentDate.getFullYear();
+    };
+
+    const hasData = (d: number) => {
+        const dateStr = new Date(viewDate.getFullYear(), viewDate.getMonth(), d).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        return submissionDates.has(dateStr);
+    };
+
+    const handleDayClick = (d: number) => {
+        onDateSelect(new Date(viewDate.getFullYear(), viewDate.getMonth(), d));
+    };
+
+    return (
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-slate-100 rounded-full"><ChevronLeftIcon className="w-4 h-4 text-slate-500"/></button>
+                <span className="text-sm font-bold text-slate-700">{monthYear}</span>
+                <button onClick={() => changeMonth(1)} className="p-1 hover:bg-slate-100 rounded-full"><ChevronRightIcon className="w-4 h-4 text-slate-500"/></button>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                {['日','月','火','水','木','金','土'].map((d, i) => (
+                    <div key={i} className={`font-bold ${i===0?'text-red-400':i===6?'text-blue-400':'text-slate-400'}`}>{d}</div>
+                ))}
+                {Array.from({length: firstDay}).map((_, i) => <div key={`empty-${i}`}></div>)}
+                {Array.from({length: days}).map((_, i) => {
+                    const d = i + 1;
+                    const selected = isSelected(d);
+                    const today = isToday(d);
+                    const data = hasData(d);
+                    return (
+                        <button 
+                            key={d} 
+                            onClick={() => handleDayClick(d)}
+                            className={`
+                                h-8 w-8 rounded-full flex items-center justify-center relative font-medium transition-all
+                                ${selected ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-50 text-slate-700'}
+                                ${today && !selected ? 'border border-indigo-200 bg-indigo-50/50' : ''}
+                            `}
+                        >
+                            {d}
+                            {data && !selected && <div className="absolute bottom-1 w-1 h-1 bg-indigo-500 rounded-full"></div>}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 const SubmissionChecker: React.FC<{
     students: Student[];
@@ -24,6 +106,7 @@ const SubmissionChecker: React.FC<{
     const [selectedClass, setSelectedClass] = useState('all');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
     const [isMenuOpen, setIsMenuOpen] = useState(true);
+    const [currentDate, setCurrentDate] = useState(new Date());
     
     // 手動入力・スキャン結果のフィードバック用
     const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -39,13 +122,52 @@ const SubmissionChecker: React.FC<{
             return () => clearTimeout(timer);
         }
     }, [scanResult]);
+
+    // 日付フォーマットヘルパー
+    const getDailyListName = (date: Date) => `提出 (${date.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })})`;
+
+    // カレンダーの日付変更時の処理
+    const handleDateSelect = useCallback((date: Date) => {
+        setCurrentDate(date);
+        const listName = getDailyListName(date);
+        const existingList = submissionLists.find(l => l.name === listName);
+
+        if (existingList) {
+            onSetActiveSubmissionListId(existingList.id);
+        } else {
+            // 自動作成ロジック（実際にはApp.tsxのcreate関数を呼ぶ必要があるが、ここでは親から渡された関数がモーダルを開く仕様のため、
+            // 簡易的に「なければ作成を促す」か、可能なら直接作成APIを叩く設計が良いが、
+            // 現在のI/FではonCreateSubmissionListはモーダルを開くだけ。
+            // ユーザー体験向上のため、リストがなければ「新規作成」フローへ誘導するか、
+            // もしくはApp.tsx側で引数付き作成に対応させるのがベスト。
+            // 今回は既存のI/Fを守りつつ、リストがない場合は「リストがありません」状態にする
+            onSetActiveSubmissionListId(''); 
+            
+            // 自動作成の提案（確認なしで作成できればベストだが、今回はCreateModalを経由）
+            // ここで本当は直接作成したいが、App.tsxのI/F制限のため、
+            // 「この日付のリストを作成しますか？」などの確認を出せると良い。
+            // 今回はシンプルに、リスト選択状態を空にして、ユーザーに作成ボタンを押させるか、
+            // あるいはリストがない日付を選んだ瞬間に「新規作成」ボタンが目立つようにする。
+        }
+    }, [submissionLists, onSetActiveSubmissionListId]);
+
+    // リストが存在する日付のセットを作成
+    const submissionDates = new Set(submissionLists.map(l => {
+        // "提出 (YYYY/MM/DD)" 形式から日付を抽出、あるいは単にリスト名全体をキーにする
+        const match = l.name.match(/提出 \((\d{4}\/\d{2}\/\d{2})\)/);
+        return match ? match[1] : null;
+    }).filter(Boolean) as string[]);
+    
+    // Auto-create/select wrapper for calendar interaction
+    // Since we cannot modify App.tsx interfaces easily to add direct create, we will inject a small logic:
+    // If user selects a date and list doesn't exist, we will try to find it. 
+    // If activeSubmissionListId becomes empty after date select, it means no list.
     
     const activeList = submissionLists.find(l => l.id === activeSubmissionListId);
     const submissionMap = new Map<string, number>(activeList?.submissions.map(s => [s.studentId, s.timestamp]) || []);
 
     const handleSubmissionScan = useCallback((student: Student, isDuplicate?: boolean) => {
         if (isDuplicate) return;
-        // UX改善: 状態更新を待たずに即座に音を鳴らす
         playSuccessSound();
         onSetSubmission(student.id, Date.now());
         return { success: true, message: `${student.name}さんを承認しました`};
@@ -65,7 +187,6 @@ const SubmissionChecker: React.FC<{
                 setScanResult({ type: 'success', message: `${student.name}さんを承認しました` });
             }
         } else {
-            // 未登録コードの場合のフィードバック
             setScanResult({ type: 'error', message: `未登録のコードです: ${code}` });
         }
         setBarcodeInput('');
@@ -78,9 +199,7 @@ const SubmissionChecker: React.FC<{
         });
 
     const handleToggleSubmission = (studentId: string, currentTimestamp: number | undefined) => {
-        // 取り消し操作か承認操作かを判定して音を鳴らす等の処理も可能
         if (!currentTimestamp) {
-            // これから承認する場合のみ音を鳴らす（オプション）
             playSuccessSound();
         }
         onSetSubmission(studentId, currentTimestamp ? null : Date.now());
@@ -109,6 +228,10 @@ const SubmissionChecker: React.FC<{
         document.body.removeChild(link);
     };
 
+    // カレンダーの日付が選ばれたときに、リストがないなら作成ボタンを表示するためのフラグ
+    const isDailyListMissing = !activeList && activeSubmissionListId === '';
+    const targetDailyListName = getDailyListName(currentDate);
+
     return (
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 h-full relative">
             {/* Mobile Toggle Button */}
@@ -118,13 +241,21 @@ const SubmissionChecker: React.FC<{
             >
                 <span className="flex items-center gap-2">
                     <Cog6ToothIcon className="w-5 h-5 text-indigo-500" />
-                    リスト選択・操作メニュー
+                    カレンダー・操作メニュー
                 </span>
                 <ChevronRightIcon className={`w-5 h-5 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : ''}`} />
             </button>
 
             {/* サイドコントロール */}
             <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 transition-all duration-300 ${isMenuOpen ? 'block' : 'hidden lg:flex'}`}>
+                
+                {/* カレンダーウィジェット */}
+                <CalendarWidget 
+                    currentDate={currentDate} 
+                    onDateSelect={handleDateSelect}
+                    submissionDates={submissionDates}
+                />
+
                 <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
                     <div className="flex justify-between items-center mb-4">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active List</label>
@@ -137,20 +268,34 @@ const SubmissionChecker: React.FC<{
                             </button>
                         )}
                     </div>
-                    <div className="flex gap-2 mb-4">
-                        <select 
-                            value={activeSubmissionListId || ''} 
-                            onChange={e => onSetActiveSubmissionListId(e.target.value)}
-                            className="flex-grow p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer w-full min-w-0"
-                        >
-                            {submissionLists.length > 0 ? (
-                                submissionLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)
-                            ) : (
-                                <option value="">リストがありません</option>
-                            )}
-                        </select>
-                        <button onClick={onCreateSubmissionList} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 flex-shrink-0" title="新規リスト"><PlusIcon className="w-5 h-5"/></button>
-                    </div>
+                    
+                    {isDailyListMissing ? (
+                         <div className="mb-4">
+                            <p className="text-xs text-amber-600 font-bold mb-2">"{targetDailyListName}" は未作成です</p>
+                            <button 
+                                // ここでは簡易的にモーダルを開くが、理想は自動作成
+                                onClick={onCreateSubmissionList} 
+                                className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold text-sm shadow-md hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
+                            >
+                                <PlusIcon className="w-4 h-4"/> 作成する
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex gap-2 mb-4">
+                            <select 
+                                value={activeSubmissionListId || ''} 
+                                onChange={e => onSetActiveSubmissionListId(e.target.value)}
+                                className="flex-grow p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer w-full min-w-0"
+                            >
+                                {submissionLists.length > 0 ? (
+                                    submissionLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>
+                                ) : (
+                                    <option value="">リストがありません</option>
+                                )}
+                            </select>
+                            <button onClick={onCreateSubmissionList} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 flex-shrink-0" title="新規リスト"><PlusIcon className="w-5 h-5"/></button>
+                        </div>
+                    )}
 
                     {activeSubmissionListId && (
                         <button 
@@ -193,16 +338,6 @@ const SubmissionChecker: React.FC<{
                     >
                         カメラを起動
                     </button>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 lg:mt-auto">
-                    <div className="flex justify-between items-end mb-3">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
-                        <span className="text-xl font-black text-indigo-600">{submissionMap.size} <span className="text-[10px] text-slate-400">/ {students.length}</span></span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden shadow-inner">
-                        <div className="bg-indigo-600 h-full transition-all duration-700 ease-out" style={{ width: `${students.length > 0 ? (submissionMap.size/students.length)*100 : 0}%` }}></div>
-                    </div>
                 </div>
             </div>
 
@@ -251,9 +386,10 @@ const SubmissionChecker: React.FC<{
                         <table className="w-full text-sm text-left border-separate border-spacing-y-1">
                             <thead className="bg-white sticky top-0 z-10">
                                 <tr className="text-slate-400">
-                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white">生徒</th>
-                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white text-center">提出ステータス</th>
-                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest text-right hidden sm:table-cell bg-white">確認時間</th>
+                                    {/* ラベルの幅や余白を調整して重なりを防止 */}
+                                    <th className="px-1 md:px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white w-20 md:w-auto whitespace-nowrap">生徒</th>
+                                    <th className="px-1 md:px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white text-center w-24 md:w-auto whitespace-nowrap">提出ステータス</th>
+                                    <th className="px-1 md:px-3 py-2 font-black text-[10px] uppercase tracking-widest text-right hidden sm:table-cell bg-white whitespace-nowrap">確認時間</th>
                                 </tr>
                             </thead>
                             <tbody className="animate-fade-in">
@@ -261,26 +397,26 @@ const SubmissionChecker: React.FC<{
                                     const timestamp = submissionMap.get(s.id);
                                     return (
                                         <tr key={s.id} className={`group transition-all ${timestamp ? 'bg-emerald-50/20' : 'bg-transparent hover:bg-slate-50'}`}>
-                                            <td className="px-3 py-2 rounded-l-lg border-y border-l border-transparent">
-                                                <div className="flex items-center gap-3">
+                                            <td className="px-1 md:px-3 py-2 rounded-l-lg border-y border-l border-transparent">
+                                                <div className="flex items-center gap-2 md:gap-3">
                                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0 ${timestamp ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                                                         {s.studentNumber}
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-baseline gap-2">
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase">{s.className}組</span>
-                                                            <span className="font-bold text-slate-700">{s.name}</span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-2">
+                                                            <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">{s.className}組</span>
+                                                            {/* 名前を改行許可・フォントサイズ縮小で省略防止 */}
+                                                            <span className="font-bold text-slate-700 text-xs break-words leading-tight">{s.name}</span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2 border-y border-transparent text-center">
-                                                {/* ここをクリックして切り替えできるように変更 */}
+                                            <td className="px-1 md:px-3 py-2 border-y border-transparent text-center">
                                                 <button
                                                     onClick={() => handleToggleSubmission(s.id, timestamp)}
                                                     className={`
-                                                        px-4 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm
-                                                        flex items-center gap-1.5 mx-auto
+                                                        px-2 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-bold transition-all border shadow-sm
+                                                        flex items-center gap-1.5 mx-auto justify-center min-w-[80px] md:min-w-[100px]
                                                         ${timestamp 
                                                             ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 group/btn' 
                                                             : 'bg-white text-slate-400 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'}
@@ -292,7 +428,7 @@ const SubmissionChecker: React.FC<{
                                                     <span className="hidden group-hover/btn:inline">{timestamp ? '取り消す' : '承認する'}</span>
                                                 </button>
                                             </td>
-                                            <td className="px-3 py-2 rounded-r-lg border-y border-r border-transparent text-right">
+                                            <td className="px-1 md:px-3 py-2 rounded-r-lg border-y border-r border-transparent text-right hidden sm:table-cell">
                                                 <div className="text-[10px] text-slate-400 font-mono">
                                                     {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}) : '-'}
                                                 </div>
@@ -310,14 +446,15 @@ const SubmissionChecker: React.FC<{
                                     <div 
                                         key={s.id} 
                                         onClick={() => handleToggleSubmission(s.id, timestamp)}
-                                        className={`relative p-4 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${timestamp ? 'bg-emerald-50 border-emerald-100 shadow-emerald-100' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-500/10'}`}
+                                        className={`relative p-3 md:p-4 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 flex flex-col h-full ${timestamp ? 'bg-emerald-50 border-emerald-100 shadow-emerald-100' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-500/10'}`}
                                     >
                                         <div className="flex justify-between items-start mb-2">
-                                            <span className="text-[10px] font-black bg-white/50 px-2 py-1 rounded text-slate-500">{s.className}-{s.studentNumber}</span>
-                                            {timestamp && <CheckCircleIcon className="w-5 h-5 text-emerald-500" />}
+                                            <span className="text-[10px] font-black bg-white/50 px-2 py-1 rounded text-slate-500 whitespace-nowrap">{s.className}-{s.studentNumber}</span>
+                                            {timestamp && <CheckCircleIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />}
                                         </div>
-                                        <h4 className="font-bold text-slate-800 text-sm mb-1 truncate">{s.name}</h4>
-                                        <p className={`text-xs font-bold ${timestamp ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                        {/* 名前を省略せず、複数行表示で全て見せる */}
+                                        <h4 className="font-bold text-slate-800 text-xs mb-1 break-words leading-tight flex-grow">{s.name}</h4>
+                                        <p className={`text-[10px] font-bold mt-2 ${timestamp ? 'text-emerald-600' : 'text-slate-400'}`}>
                                             {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}) : '未提出'}
                                         </p>
                                     </div>
