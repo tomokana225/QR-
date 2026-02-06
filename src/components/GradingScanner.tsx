@@ -55,8 +55,10 @@ const GradingScanner: React.FC<{
              return { success: false, message: '採点する点数を選択してください。'};
         }
 
-        onSetScore(activeGradingListId, student.id, selectedScore);
+        // UX改善: 状態更新を待たずに即座に音を鳴らす
         playSuccessSound();
+        onSetScore(activeGradingListId, student.id, selectedScore);
+        
         return { success: true, message: `${student.name} さんを「${selectedScore}」で採点しました。`};
     }, [activeGradingListId, onSetScore, playSuccessSound, selectedScore]);
 

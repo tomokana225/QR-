@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Student, SubmissionList, AppSettings } from '../types';
-import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon, ChevronRightIcon, Cog6ToothIcon } from './Icons';
+import { PlusIcon, TrashIcon, CameraIcon, CheckCircleIcon, ArrowPathIcon, DocumentArrowDownIcon, ListBulletIcon, Squares2x2Icon, ChevronRightIcon, Cog6ToothIcon, ExclamationTriangleIcon } from './Icons';
 import CameraScannerModal from './CameraScannerModal';
 
 const SubmissionChecker: React.FC<{
@@ -22,27 +22,52 @@ const SubmissionChecker: React.FC<{
     const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
     const [barcodeInput, setBarcodeInput] = useState('');
     const [selectedClass, setSelectedClass] = useState('all');
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid for better visibility on mobile
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
     const [isMenuOpen, setIsMenuOpen] = useState(true);
+    
+    // 手動入力・スキャン結果のフィードバック用
+    const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
     useEffect(() => {
         setIsMenuOpen(window.innerWidth >= 1024);
     }, []);
+
+    // フィードバックを一定時間で消す
+    useEffect(() => {
+        if (scanResult) {
+            const timer = setTimeout(() => setScanResult(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [scanResult]);
     
     const activeList = submissionLists.find(l => l.id === activeSubmissionListId);
     const submissionMap = new Map<string, number>(activeList?.submissions.map(s => [s.studentId, s.timestamp]) || []);
 
     const handleSubmissionScan = useCallback((student: Student, isDuplicate?: boolean) => {
         if (isDuplicate) return;
-        onSetSubmission(student.id, Date.now());
+        // UX改善: 状態更新を待たずに即座に音を鳴らす
         playSuccessSound();
+        onSetSubmission(student.id, Date.now());
         return { success: true, message: `${student.name}さんを承認しました`};
     }, [onSetSubmission, playSuccessSound]);
 
     const handleBarcodeSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const student = students.find(s => s.randomCode === barcodeInput.trim());
-        if (student) handleSubmissionScan(student, submissionMap.has(student.id));
+        const code = barcodeInput.trim();
+        if (!code) return;
+
+        const student = students.find(s => s.randomCode === code);
+        if (student) {
+            if (submissionMap.has(student.id)) {
+                setScanResult({ type: 'error', message: `${student.name}さんは既に提出済みです` });
+            } else {
+                handleSubmissionScan(student, false);
+                setScanResult({ type: 'success', message: `${student.name}さんを承認しました` });
+            }
+        } else {
+            // 未登録コードの場合のフィードバック
+            setScanResult({ type: 'error', message: `未登録のコードです: ${code}` });
+        }
         setBarcodeInput('');
     };
 
@@ -53,6 +78,11 @@ const SubmissionChecker: React.FC<{
         });
 
     const handleToggleSubmission = (studentId: string, currentTimestamp: number | undefined) => {
+        // 取り消し操作か承認操作かを判定して音を鳴らす等の処理も可能
+        if (!currentTimestamp) {
+            // これから承認する場合のみ音を鳴らす（オプション）
+            playSuccessSound();
+        }
         onSetSubmission(studentId, currentTimestamp ? null : Date.now());
     };
 
@@ -207,6 +237,14 @@ const SubmissionChecker: React.FC<{
                         </select>
                     </div>
                 </div>
+
+                {/* フィードバック表示エリア */}
+                {scanResult && (
+                    <div className={`mx-6 mt-4 flex items-center gap-3 p-4 rounded-xl text-sm font-bold border animate-fade-in ${scanResult.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : 'bg-red-50 text-red-800 border-red-100'}`}>
+                        {scanResult.type === 'success' ? <CheckCircleIcon className="w-5 h-5"/> : <ExclamationTriangleIcon className="w-5 h-5"/>}
+                        <span>{scanResult.message}</span>
+                    </div>
+                )}
                 
                 <div className="flex-grow overflow-y-auto scroll-container px-4 lg:px-6 py-4">
                     {viewMode === 'list' ? (
@@ -214,7 +252,7 @@ const SubmissionChecker: React.FC<{
                             <thead className="bg-white sticky top-0 z-10">
                                 <tr className="text-slate-400">
                                     <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white">生徒</th>
-                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white">ステータス</th>
+                                    <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest bg-white text-center">提出ステータス</th>
                                     <th className="px-3 py-2 font-black text-[10px] uppercase tracking-widest text-right hidden sm:table-cell bg-white">確認時間</th>
                                 </tr>
                             </thead>
@@ -233,23 +271,29 @@ const SubmissionChecker: React.FC<{
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase">{s.className}組</span>
                                                             <span className="font-bold text-slate-700">{s.name}</span>
                                                         </div>
-                                                        <div className="flex items-center gap-1 mt-0.5">
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${timestamp ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                                                            <span className={`text-xs ${timestamp ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
-                                                                {timestamp ? '提出済み' : '未提出'}
-                                                            </span>
-                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2 rounded-r-lg border-y border-r border-transparent text-right">
+                                            <td className="px-3 py-2 border-y border-transparent text-center">
+                                                {/* ここをクリックして切り替えできるように変更 */}
                                                 <button
                                                     onClick={() => handleToggleSubmission(s.id, timestamp)}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timestamp ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+                                                    className={`
+                                                        px-4 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm
+                                                        flex items-center gap-1.5 mx-auto
+                                                        ${timestamp 
+                                                            ? 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 group/btn' 
+                                                            : 'bg-white text-slate-400 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'}
+                                                    `}
+                                                    title={timestamp ? "クリックして提出を取り消し" : "クリックして提出承認"}
                                                 >
-                                                    {timestamp ? '取り消し' : '承認'}
+                                                    <div className={`w-2 h-2 rounded-full ${timestamp ? 'bg-emerald-500 group-hover/btn:bg-red-500' : 'bg-slate-300'}`}></div>
+                                                    <span className="group-hover/btn:hidden">{timestamp ? '提出済み' : '未提出'}</span>
+                                                    <span className="hidden group-hover/btn:inline">{timestamp ? '取り消す' : '承認する'}</span>
                                                 </button>
-                                                <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                                            </td>
+                                            <td className="px-3 py-2 rounded-r-lg border-y border-r border-transparent text-right">
+                                                <div className="text-[10px] text-slate-400 font-mono">
                                                     {timestamp ? new Date(timestamp).toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}) : '-'}
                                                 </div>
                                             </td>
