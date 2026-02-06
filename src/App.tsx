@@ -145,6 +145,31 @@ const App: React.FC = () => {
         } catch (error) { console.error(error); }
     }, []);
 
+    // 緊急フォールバック: 設定がない場合、APIから取得を試みる
+    useEffect(() => {
+        const fetchConfig = async () => {
+            const currentConfig = settings.firebaseConfig;
+            // APIキーがない場合、APIから取得を試みる
+            if (!currentConfig || !currentConfig.apiKey) {
+                console.log("Config missing, attempting to fetch from /api/config...");
+                try {
+                    const res = await fetch('/api/config');
+                    if (res.ok) {
+                        const cloudConfig = await res.json();
+                        if (cloudConfig.apiKey) {
+                            console.log("Config successfully loaded from API");
+                            window.FIREBASE_ENV = cloudConfig;
+                            setSettings(prev => ({ ...prev, firebaseConfig: cloudConfig }));
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch config from API", e);
+                }
+            }
+        };
+        fetchConfig();
+    }, [settings.firebaseConfig.apiKey]);
+
     // Firebase初期化とAuth監視 & クラウドデータロード
     useEffect(() => {
         let unsubscribe: () => void;
@@ -159,54 +184,59 @@ const App: React.FC = () => {
             }
         }, 5000);
 
-        const fb = initFirebase(settings.firebaseConfig);
-        
-        if (fb && fb.auth) {
-            setIsFirebaseReady(true);
-            unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
-                clearTimeout(timeoutId); // 接続成功したらタイムアウト解除
-                setFirebaseUser(user);
-                if (user) {
-                    setSyncStatus('データ取得中...');
-                    try {
-                        // ログイン成功時、クラウドからデータをロード
-                        const cloudData = await loadFromCloud(user.uid);
-                        if (cloudData) {
-                            setStudents(cloudData.students || []);
-                            setSubmissionLists(cloudData.submissionLists || []);
-                            setGradingLists(cloudData.gradingLists || []);
-                            // 設定はクラウドにあるものを優先するが、現在のConfig情報は維持したい場合もある
-                            if (cloudData.settings) {
-                                setSettings(prev => ({
-                                    ...prev,
-                                    ...cloudData.settings,
-                                    firebaseConfig: prev.firebaseConfig.apiKey ? prev.firebaseConfig : cloudData.settings.firebaseConfig
-                                }));
+        // APIキーがある場合のみ初期化を試みる
+        if (settings.firebaseConfig && settings.firebaseConfig.apiKey) {
+            const fb = initFirebase(settings.firebaseConfig);
+            
+            if (fb && fb.auth) {
+                setIsFirebaseReady(true);
+                unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
+                    clearTimeout(timeoutId); // 接続成功したらタイムアウト解除
+                    setFirebaseUser(user);
+                    if (user) {
+                        setSyncStatus('データ取得中...');
+                        try {
+                            // ログイン成功時、クラウドからデータをロード
+                            const cloudData = await loadFromCloud(user.uid);
+                            if (cloudData) {
+                                setStudents(cloudData.students || []);
+                                setSubmissionLists(cloudData.submissionLists || []);
+                                setGradingLists(cloudData.gradingLists || []);
+                                // 設定はクラウドにあるものを優先するが、現在のConfig情報は維持したい場合もある
+                                if (cloudData.settings) {
+                                    setSettings(prev => ({
+                                        ...prev,
+                                        ...cloudData.settings,
+                                        firebaseConfig: prev.firebaseConfig.apiKey ? prev.firebaseConfig : cloudData.settings.firebaseConfig
+                                    }));
+                                }
+                                const now = Date.now();
+                                setSyncStatus('同期完了: ' + new Date(now).toLocaleTimeString());
+                            } else {
+                                setSyncStatus('クラウドデータなし (新規)');
                             }
-                            const now = Date.now();
-                            setSyncStatus('同期完了: ' + new Date(now).toLocaleTimeString());
-                        } else {
-                            setSyncStatus('クラウドデータなし (新規)');
+                            setMainMode('dashboard');
+                        } catch (e) {
+                            console.error("Load failed", e);
+                            setSyncStatus('読み込みエラー');
+                            // エラーでもログイン状態ならダッシュボードへ（オフライン動作など考慮）
+                            setMainMode('dashboard');
                         }
-                        setMainMode('dashboard');
-                    } catch (e) {
-                        console.error("Load failed", e);
-                        setSyncStatus('読み込みエラー');
-                        // エラーでもログイン状態ならダッシュボードへ（オフライン動作など考慮）
-                        setMainMode('dashboard');
+                    } else {
+                        setSyncStatus('未ログイン');
+                        setMainMode('login');
                     }
-                } else {
-                    setSyncStatus('未ログイン');
-                    setMainMode('login');
-                }
-                setIsAppInitializing(false);
-            });
+                    setIsAppInitializing(false);
+                });
+            } else {
+                // 初期化失敗
+                console.warn("Firebase init returned null despite having config.");
+            }
         } else {
-            // Firebase設定がない場合などはとりあえずログイン画面へ
-            clearTimeout(timeoutId);
-            setSyncStatus('APIキー未設定');
-            setIsAppInitializing(false);
-            setIsFirebaseReady(false);
+            // Firebase設定がない場合
+            setSyncStatus('設定読み込み中...');
+            // APIフェッチのuseEffectが走るのでここでは何もしないが、
+            // 一定時間経過後はタイムアウト処理に任せる
         }
 
         return () => {

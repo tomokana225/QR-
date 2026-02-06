@@ -1,8 +1,7 @@
+
 // A simple service worker for caching application assets and enabling offline functionality.
-const CACHE_NAME = 'qr-student-manager-cache-v1';
+const CACHE_NAME = 'qr-student-manager-cache-v2';
 const URLS_TO_CACHE = [
-  '/',
-  '/index.html',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/html5-qrcode'
 ];
@@ -40,8 +39,14 @@ self.addEventListener('activate', event => {
   return self.clients.claim();
 });
 
-// Serve content from the cache first (cache-first strategy).
+// Serve content from the cache first (cache-first strategy), but exclude HTML to ensure env injection
 self.addEventListener('fetch', event => {
+  // Navigation requests (HTML) should go to network to get environment variables
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {

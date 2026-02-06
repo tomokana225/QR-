@@ -27,6 +27,24 @@ export default {
           },
         });
       }
+
+      if (url.pathname === "/api/config") {
+        return new Response(JSON.stringify({
+            apiKey: env.FIREBASE_API_KEY || "",
+            authDomain: env.FIREBASE_AUTH_DOMAIN || "",
+            projectId: env.FIREBASE_PROJECT_ID || "",
+            storageBucket: env.FIREBASE_STORAGE_BUCKET || "",
+            messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID || "",
+            appId: env.FIREBASE_APP_ID || ""
+        }), {
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store"
+          },
+        });
+      }
+
       return new Response(JSON.stringify({ error: "Not Found" }), { status: 404 });
     }
 
@@ -67,15 +85,8 @@ export default {
             appId: env.FIREBASE_APP_ID || ""
         };
 
-        // Create debug info to help user verify keys are present in the worker
-        // This will log to the browser console
         const availableKeys = Object.keys(firebaseConfig).filter(k => !!firebaseConfig[k as keyof typeof firebaseConfig]);
         const debugLog = `console.log("QR Manager: Loaded Config Keys:", ${JSON.stringify(availableKeys)});`;
-        if (availableKeys.length === 0) {
-            const envKeys = Object.keys(env).filter(k => k.startsWith('FIREBASE_'));
-            // If config is empty, log what raw keys are available on env for debugging
-            debugLog.concat(`console.warn("QR Manager: No config values found. Raw Env Keys available:", ${JSON.stringify(envKeys)});`);
-        }
 
         const injection = `
         <script>
