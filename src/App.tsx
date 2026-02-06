@@ -146,9 +146,22 @@ const App: React.FC = () => {
 
     // Firebase初期化とAuth監視 & クラウドデータロード
     useEffect(() => {
+        let unsubscribe: () => void;
+        
+        // タイムアウト設定: 5秒経っても初期化が終わらなければ強制的にログイン画面へ
+        const timeoutId = setTimeout(() => {
+            if (isAppInitializing) {
+                console.warn("Firebase initialization timed out.");
+                setSyncStatus('接続タイムアウト');
+                setIsAppInitializing(false);
+            }
+        }, 5000);
+
         const fb = initFirebase(settings.firebaseConfig);
+        
         if (fb && fb.auth) {
-            const unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
+            unsubscribe = onAuthStateChanged(fb.auth, async (user) => {
+                clearTimeout(timeoutId); // 接続成功したらタイムアウト解除
                 setFirebaseUser(user);
                 if (user) {
                     setSyncStatus('データ取得中...');
@@ -160,7 +173,6 @@ const App: React.FC = () => {
                             setSubmissionLists(cloudData.submissionLists || []);
                             setGradingLists(cloudData.gradingLists || []);
                             // 設定はクラウドにあるものを優先するが、現在のConfig情報は維持したい場合もある
-                            // ここではクラウドの設定を優先しつつ、Configはローカルが空ならマージする形をとる
                             if (cloudData.settings) {
                                 setSettings(prev => ({
                                     ...prev,
@@ -186,13 +198,18 @@ const App: React.FC = () => {
                 }
                 setIsAppInitializing(false);
             });
-            return () => unsubscribe();
         } else {
             // Firebase設定がない場合などはとりあえずログイン画面へ
+            clearTimeout(timeoutId);
             console.warn("Firebase configuration is missing or invalid.");
             setSyncStatus('APIキー未設定');
             setIsAppInitializing(false);
         }
+
+        return () => {
+            clearTimeout(timeoutId);
+            if (unsubscribe) unsubscribe();
+        };
     }, [settings.firebaseConfig.apiKey]); // apiKeyがロードされたら実行
 
     // 自動保存ロジック (Debounce)
